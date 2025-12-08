@@ -1,0 +1,13 @@
+Year,Month,Indicator,Value,Unit,Remarks,z_score,anomaly_flag
+2024,1,Energy Consumption (GRI 302),11088.8,kWh,Normal production fluctuation,0.6145050544485272,Normal
+2024,2,Energy Consumption (GRI 302),10575.4,kWh,Normal production fluctuation,-2.0762147319384967,Low Anomaly
+2024,3,Energy Consumption (GRI 302),10951.6,kWh,Normal production fluctuation,-0.10455757642856083,Normal
+2024,4,Energy Consumption (GRI 302),11077.3,kWh,Normal production fluctuation,0.5542337697904618,Normal
+2024,5,Energy Consumption (GRI 302),11018.1,kWh,Normal production fluctuation,0.24396767833329586,Normal
+2024,6,Energy Consumption (GRI 302),10989.6,kWh,Normal production fluctuation,0.09459971200678587,Normal
+2024,7,Energy Consumption (GRI 302),11237.3,kWh,Normal production fluctuation,1.3927907737287637,Normal
+2024,8,Energy Consumption (GRI 302),11176.1,kWh,Normal production fluctuation,1.072042719722369,Normal
+2024,9,Energy Consumption (GRI 302),11029.9,kWh,Normal production fluctuation,0.3058112573737418,Normal
+2024,10,Energy Consumption (GRI 302),10681.3,kWh,Normal production fluctuation,-1.521194814956835,Warning
+2024,11,Energy Consumption (GRI 302),10765.0,kWh,Normal production fluctuation,-1.0825246822716073,Normal
+2024,12,Energy Consumption (GRI 302),11068.2,kWh,Normal production fluctuation,0.5065408401914785,Normal

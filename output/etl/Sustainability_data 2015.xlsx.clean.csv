@@ -1,0 +1,13 @@
+Year,Month,Indicator,Value,Unit,Remarks,z_score,anomaly_flag
+2015,Jan,Energy Consumption (GRI 302),10149.0,kWh,Normal production fluctuation,-0.4133763861860355,Normal
+2015,Feb,Energy Consumption (GRI 302),9929.8,kWh,Normal production fluctuation,-0.4555251138268975,Normal
+2015,Mar,Energy Consumption (GRI 302),9859.2,kWh,Normal production fluctuation,-0.46910038833166384,Normal
+2015,Apr,Energy Consumption (GRI 302),10072.6,kWh,Normal production fluctuation,-0.42806690987108037,Normal
+2015,May,Energy Consumption (GRI 302),9696.2,kWh,Normal production fluctuation,-0.500442735984312,Normal
+2015,Jun,Energy Consumption (GRI 302),10439.7,kWh,Normal production fluctuation,-0.3574793281331224,Normal
+2015,Jul,Energy Consumption (GRI 302),23017.87284061455,kWh,ANOMALY – abnormal spike detected,2.061106352883063,High Anomaly
+2015,Aug,Energy Consumption (GRI 302),9819.8,kWh,Normal production fluctuation,-0.4766763913838993,Normal
+2015,Sep,Energy Consumption (GRI 302),24761.04614668039,kWh,ANOMALY – abnormal spike detected,2.3962912840335635,High Anomaly
+2015,Oct,Energy Consumption (GRI 302),10062.7,kWh,Normal production fluctuation,-0.42997052485121046,Normal
+2015,Nov,Energy Consumption (GRI 302),10221.5,kWh,Normal production fluctuation,-0.39943577143255704,Normal
+2015,Dec,Energy Consumption (GRI 302),9556.4,kWh,Normal production fluctuation,-0.5273240869158472,Normal
