@@ -71,7 +71,6 @@ st.markdown("""
 <h2 style='color:#1565C0; text-align:center; margin-bottom:10px;'>👥 Project Team Members</h2>
 """, unsafe_allow_html=True)
 
-# Split list into 3 columns
 col1, col2, col3 = st.columns(3)
 for i, name in enumerate(team_members):
     if i % 3 == 0:
@@ -137,11 +136,11 @@ st.write("")
 st.write("")
 
 # -------------------------------------------------------
-# NAVIGATION
+# NAVIGATION (✅ UPDATED WITH PAGE 05)
 # -------------------------------------------------------
 st.subheader("🔗 Quick Navigation")
 
-nav1, nav2, nav3, nav4 = st.columns(4)
+nav1, nav2, nav3, nav4, nav5 = st.columns(5)
 
 with nav1:
     st.page_link("pages/01_Chat_Agent.py", label="💬 Chat Agent")
@@ -154,6 +153,9 @@ with nav3:
 
 with nav4:
     st.page_link("pages/04_GRI_Report_PDF.py", label="📄 PDF Report Generator")
+
+with nav5:
+    st.page_link("pages/05_All_In_One_GRI_Platform.py", label="🏢 All In One GRI Platform")
 
 st.write("")
 st.write("")
