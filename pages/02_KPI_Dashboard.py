@@ -71,16 +71,16 @@ def smart_kpi(current, previous):
 
     return current["total"], pct_text, arrow
 
-e_val, e_pct, e_arrow = smart_kpi(energy, energy_prev)
-w_val, w_pct, w_arrow = smart_kpi(water, water_prev)
-em_val, em_pct, em_arrow = smart_kpi(emission, emission_prev)
-wa_val, wa_pct, wa_arrow = smart_kpi(waste, waste_prev)
+e_val, e_pct, e_arrow     = smart_kpi(energy, energy_prev)
+w_val, w_pct, w_arrow     = smart_kpi(water, water_prev)
+em_val, em_pct, em_arrow  = smart_kpi(emission, emission_prev)
+wa_val, wa_pct, wa_arrow  = smart_kpi(waste, waste_prev)
 
 # =========================
 # ✅ HEADER
 # =========================
 st.title("📊 Sustainability KPI Dashboard")
-st.caption("Smart KPI Cards + Gauges + YOY + Comparison + Anomaly Detection")
+st.caption("Smart KPI Cards + Gauges + YOY + Comparison + Anomaly + Prediction")
 
 # =========================
 # ✅ SMART KPI CARDS (YOY)
@@ -101,7 +101,7 @@ with k4:
 st.markdown("---")
 
 # =========================
-# ✅ KPI GAUGES (NEW)
+# ✅ KPI GAUGES
 # =========================
 st.subheader("🧭 KPI Gauges")
 
@@ -128,7 +128,7 @@ g4.plotly_chart(draw_gauge("Waste", waste["total"], waste["unit"]), use_containe
 st.markdown("---")
 
 # =========================
-# ✅ MONTHLY TRENDS (EXISTING)
+# ✅ MONTHLY TRENDS
 # =========================
 st.subheader("📈 Monthly KPI Trends")
 
@@ -160,7 +160,7 @@ c4.plotly_chart(monthly_chart("Waste Trend", waste["monthly"], waste["unit"]), u
 st.markdown("---")
 
 # =========================
-# ✅ ANOMALY DETECTION (MONTHLY - NEW)
+# ✅ ANOMALY DETECTION (MONTHLY)
 # =========================
 st.subheader("🚨 Anomaly Detection (Monthly)")
 
@@ -214,7 +214,7 @@ else:
 st.markdown("---")
 
 # =========================
-# ✅ YEAR-TO-YEAR COMPARISON (EXISTING)
+# ✅ YEAR-TO-YEAR COMPARISON
 # =========================
 st.subheader("📊 Year-to-Year KPI Comparison")
 
@@ -257,21 +257,51 @@ if compare_years and comparison_data:
 
     st.plotly_chart(compare_fig, use_container_width=True)
 
-    bar_fig = px.bar(
-        x=compare_years,
-        y=comparison_data,
-        labels={"x": "Year", "y": f"{compare_kpi} Value"},
-        title=f"{compare_kpi} Bar Comparison"
-    )
-
-    st.plotly_chart(bar_fig, use_container_width=True)
-
-    compare_df = pd.DataFrame({
-        "Year": compare_years,
-        f"{compare_kpi} Total": comparison_data
-    })
-
-    st.dataframe(compare_df, use_container_width=True)
-
 else:
     st.info("Please select at least one year for comparison.")
+
+st.markdown("---")
+
+# =========================
+# ✅ ✅ ✅ PREDICTION FOR NEXT YEAR (NEW)
+# =========================
+st.subheader("🔮 KPI Prediction for Next Year")
+
+predict_kpi = st.selectbox("Select KPI for Prediction", ["Energy", "Water", "Emissions", "Waste"])
+
+hist_years = sorted(years)
+
+hist_values = []
+for y in hist_years:
+    hist_values.append(get_kpi_total_by_year(y, predict_kpi))
+
+if len(hist_years) >= 3:
+
+    x = np.array(hist_years)
+    y = np.array(hist_values)
+
+    coeff = np.polyfit(x, y, 1)
+    model = np.poly1d(coeff)
+
+    next_year = hist_years[-1] + 1
+    predicted_value = model(next_year)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=hist_years, y=y, mode="lines+markers", name="Historical"))
+    fig.add_trace(go.Scatter(x=[next_year], y=[predicted_value],
+                             mode="markers",
+                             marker=dict(size=12, color="red"),
+                             name="Predicted"))
+
+    fig.update_layout(
+        title=f"{predict_kpi} — Prediction for {next_year}",
+        xaxis_title="Year",
+        yaxis_title="Value"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.success(f"🔮 Predicted {predict_kpi} Value for {next_year}: {predicted_value:.2f}")
+
+else:
+    st.warning("Not enough historical data for prediction (minimum 3 years).")
