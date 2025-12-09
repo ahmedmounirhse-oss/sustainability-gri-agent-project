@@ -5,7 +5,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 COMPANY_DIR = os.path.join(BASE_DIR, "data", "companies")
 
 # ================================
-# ✅ LIST COMPANY FILES
+# ✅ LIST FILES
 # ================================
 def list_company_files():
     if not os.path.exists(COMPANY_DIR):
@@ -43,11 +43,11 @@ def load_company_file(filename):
     return full_df
 
 # ================================
-# ✅ COMPUTE KPI BY CATEGORY
+# ✅ COMPUTE KPI
 # ================================
 def compute_kpis_by_category(df, selected_category):
-
     kpis = {}
+
     cat_df = df[df["Category"] == selected_category]
 
     if cat_df.empty:
@@ -81,7 +81,6 @@ def compute_kpis_by_category(df, selected_category):
 # ✅ TREND DATA
 # ================================
 def get_trend_data(df, selected_category, metric_name):
-
     cat_df = df[df["Category"] == selected_category]
 
     metric_col = None
@@ -106,49 +105,3 @@ def get_trend_data(df, selected_category, metric_name):
             data[y] = None
 
     return data
-
-# ================================
-# ✅ OVERALL ESG SCORE (NEW)
-# ================================
-def calculate_esg_score(df):
-
-    weights = {
-        "Energy": 0.25,
-        "Water": 0.25,
-        "Emissions": 0.35,
-        "Waste": 0.15
-    }
-
-    scores = {}
-    overall_score = 0
-
-    for category, weight in weights.items():
-
-        cat_df = df[df["Category"].str.lower() == category.lower()]
-        if cat_df.empty:
-            continue
-
-        metric_col = None
-        for col in cat_df.columns:
-            if "metric" in col.lower():
-                metric_col = col
-
-        year_cols = [c for c in cat_df.columns if str(c).isdigit()]
-        if not metric_col or not year_cols:
-            continue
-
-        latest_year = sorted(year_cols, key=lambda x: int(x))[-1]
-        values = pd.to_numeric(cat_df[latest_year], errors="coerce").dropna()
-
-        if values.empty:
-            continue
-
-        max_val = values.max()
-        avg_val = values.mean()
-
-        score = max(0, 100 - (avg_val / max_val * 100))
-        scores[category] = round(score, 2)
-
-        overall_score += score * weight
-
-    return round(overall_score, 2), scores
