@@ -9,14 +9,13 @@ import numpy as np
 from io import BytesIO
 import os
 
-# ============================================
-#  PDF GENERATOR WITH FULL KPI + ESG + TRENDS
-# ============================================
 
+# ============================
+# 📌 Generate Chart PNG
+# ============================
 def generate_chart_image(df, title):
-    """Generate PNG chart and return buffer"""
     fig, ax = plt.subplots(figsize=(6, 3))
-    df.plot(ax=ax, marker='o')
+    df.plot(ax=ax, marker='o', linewidth=2)
     ax.set_title(title)
     ax.grid(True)
     buffer = BytesIO()
@@ -26,12 +25,16 @@ def generate_chart_image(df, title):
     return buffer
 
 
+# ============================
+# 📌 Generate Gauge PNG
+# ============================
 def gauge_image(value, max_value, title):
-    """Generate a simple gauge as PNG"""
     fig, ax = plt.subplots(figsize=(4, 2))
-    ax.barh([0], [value], color="green" if value < max_value * 0.5 else "orange" if value < max_value * 0.8 else "red")
+    color = "green" if value < max_value * 0.5 else "orange" if value < max_value * 0.8 else "red"
+    ax.barh([0], [value], color=color)
     ax.set_xlim(0, max_value)
     ax.set_title(title)
+    ax.grid(True, axis="x")
     buffer = BytesIO()
     plt.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
     buffer.seek(0)
@@ -39,132 +42,168 @@ def gauge_image(value, max_value, title):
     return buffer
 
 
-def build_company_pdf(company_name, df, kpis, category):
+# ============================
+# 📌 Main PDF Builder
+# ============================
+def build_company_pdf(company_name, df, kpis, category=None):
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
 
-    # ========================
-    # COVER PAGE
-    # ========================
-    story.append(Paragraph(f"<para align='center'><b><font size=22>{company_name} — GRI Sustainability Report</font></b></para>", styles["Title"]))
+
+    # =======================================
+    # 📄 COVER PAGE
+    # =======================================
+    story.append(Paragraph(f"<para align='center'><b><font size=22>{company_name}</font></b></para>", styles["Title"]))
     story.append(Spacer(1, 20))
+
+    story.append(Paragraph("<para align='center'>GRI Sustainability Performance Report</para>", styles["Heading2"]))
+    story.append(Spacer(1, 30))
 
     img_path = "assets/company_logo.png"
     if os.path.exists(img_path):
         story.append(Image(img_path, width=300, height=120))
-        story.append(Spacer(1, 30))
+        story.append(Spacer(1, 40))
 
-    story.append(Paragraph(f"<b>Category:</b> {category}", styles["Heading2"]))
+    story.append(Paragraph("<b>This report includes GRI Standards:</b><br/>302 – Energy<br/>303 – Water<br/>305 – Emissions<br/>306 – Waste", styles["Normal"]))
     story.append(PageBreak())
 
-    # ======================
-    # 1️⃣ KPI SMART CARDS
-    # ======================
-    story.append(Paragraph("<b>1. KPI Smart Summary</b>", styles["Heading2"]))
-    data = [["KPI", "Latest Value"]]
-    for k, v in kpis.items():
-        data.append([k, f"{v:,.2f}"])
 
-    table = Table(data, colWidths=[200, 150])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#E6F2FF")),
-        ('BOX', (0,0), (-1,-1), 1, colors.black),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
-    ]))
-    story.append(table)
-    story.append(PageBreak())
+    # =======================================
+    # 📘 PROCESS EACH GRI CATEGORY
+    # =======================================
+    gri_categories = {
+        "Energy": "302",
+        "Water": "303",
+        "Emission": "305",
+        "Waste": "306"
+    }
 
-    # ======================
-    # 2️⃣ KPI GAUGES
-    # ======================
-    story.append(Paragraph("<b>2. KPI Gauges</b>", styles["Heading2"]))
-
-    for k, v in kpis.items():
-        gauge_buf = gauge_image(v, max_value=max(list(kpis.values())), title=k)
-        story.append(Image(gauge_buf, width=300, height=120))
-        story.append(Spacer(1, 10))
-
-    story.append(PageBreak())
-
-    # ======================
-    # 3️⃣ TRENDS + CHARTS
-    # ======================
-    story.append(Paragraph("<b>3. KPI Trends (Historical)</b>", styles["Heading2"]))
-
-    all_years = [c for c in df.columns if str(c).isdigit()]
     metrics_col = [c for c in df.columns if "metric" in c.lower()][0]
+    year_cols = [c for c in df.columns if str(c).isdigit()]
 
-    for metric in df["Metric"].unique():
-        row = df[df["Metric"] == metric]
+    
+    for cat_name, gri_code in gri_categories.items():
 
-        values = pd.to_numeric(row[all_years].iloc[0], errors="ignore")
-        trend_df = pd.DataFrame({"Year": all_years, "Value": values}).set_index("Year")
+        cat_df = df[df["Category"] == cat_name]
+        if cat_df.empty:
+            continue
 
-        chart_buf = generate_chart_image(trend_df, f"{metric} Trend")
-        story.append(Image(chart_buf, width=400, height=180))
-        story.append(Spacer(1, 10))
+        story.append(Paragraph(f"<b>GRI {gri_code} — {cat_name}</b>", styles["Heading1"]))
+        story.append(Spacer(1, 12))
 
-    story.append(PageBreak())
 
-    # ======================
-    # 4️⃣ ESG SCORE
-    # ======================
-    story.append(Paragraph("<b>4. ESG Score</b>", styles["Heading2"]))
+        # ----------------------------------------
+        # 📌 KPI Table Section
+        # ----------------------------------------
+        story.append(Paragraph("<b>KPI Summary</b>", styles["Heading2"]))
+        kpi_data = [["KPI", "Value"]]
 
-    # Fake formula (should match page)
-    esg_score = round(100 - (np.mean(list(kpis.values())) / max(kpis.values()) * 100), 2)
+        for _, row in cat_df.iterrows():
+            metric = row[metrics_col]
+            latest_val = row[year_cols[-1]]
+            kpi_data.append([metric, f"{latest_val:,.2f}"])
 
-    story.append(Paragraph(f"<b>Overall ESG Score:</b> {esg_score}/100", styles["Normal"]))
+        table = Table(kpi_data, colWidths=[220, 120])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#003366")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#E6F2FF")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 20))
 
-    gauge_buf = gauge_image(esg_score, 100, title="ESG Score")
-    story.append(Image(gauge_buf, width=350, height=120))
 
-    story.append(PageBreak())
+        # ----------------------------------------
+        # 📌 Gauges Section
+        # ----------------------------------------
+        story.append(Paragraph("<b>Performance Gauges</b>", styles["Heading2"]))
 
-    # ======================
-    # 5️⃣ NEXT YEAR PREDICTION
-    # ======================
-    story.append(Paragraph("<b>5. Next Year KPI Prediction</b>", styles["Heading2"]))
+        max_val = max([float(row[year_cols[-1]]) for _, row in cat_df.iterrows()])
 
-    for metric in df["Metric"].unique():
-        row = df[df["Metric"] == metric]
-        values = pd.to_numeric(row[all_years].iloc[0], errors="coerce")
-        X = np.array([int(y) for y in all_years])
-        Y = values.values
+        for _, row in cat_df.iterrows():
+            metric = row[metrics_col]
+            value = row[year_cols[-1]]
 
-        model = np.poly1d(np.polyfit(X, Y, 1))
-        next_year = int(all_years[-1]) + 1
-        pred = model(next_year)
+            g_buf = gauge_image(float(value), max_val, metric)
+            story.append(Image(g_buf, width=350, height=120))
+            story.append(Spacer(1, 10))
 
-        story.append(Paragraph(f"<b>{metric} ({next_year}):</b> {pred:,.2f}", styles["Normal"]))
 
-    story.append(PageBreak())
+        # ----------------------------------------
+        # 📌 Trend Charts
+        # ----------------------------------------
+        story.append(Paragraph("<b>Trend Analysis</b>", styles["Heading2"]))
 
-    # ======================
-    # 6️⃣ ANOMALY DETECTION
-    # ======================
-    story.append(Paragraph("<b>6. Anomaly Detection</b>", styles["Heading2"]))
+        for _, row in cat_df.iterrows():
 
-    for metric in df["Metric"].unique():
-        row = df[df["Metric"] == metric]
-        values = pd.to_numeric(row[all_years].iloc[0], errors="coerce")
+            metric = row[metrics_col]
+            values = pd.to_numeric(row[year_cols], errors="coerce")
 
-        mean = values.mean()
-        std = values.std()
+            trend_df = pd.DataFrame({"Year": year_cols, "Value": values})
+            trend_df = trend_df.set_index("Year")
 
-        anomalies = [y for y, val in zip(all_years, values) if abs(val - mean) > 2 * std]
+            chart_buf = generate_chart_image(trend_df, f"{metric} Trend Over Years")
+            story.append(Image(chart_buf, width=400, height=180))
+            story.append(Spacer(1, 15))
 
-        if anomalies:
-            story.append(Paragraph(f"<b>{metric} anomalies:</b> {', '.join(anomalies)}", styles["Normal"]))
-        else:
-            story.append(Paragraph(f"<b>{metric}:</b> No anomalies detected.", styles["Normal"]))
 
-    # =============== END ===============
+        # ----------------------------------------
+        # 📌 Prediction (Linear Regression)
+        # ----------------------------------------
+        story.append(Paragraph("<b>Next-Year Performance Prediction</b>", styles["Heading2"]))
+
+        for _, row in cat_df.iterrows():
+
+            metric = row[metrics_col]
+            values = pd.to_numeric(row[year_cols], errors="coerce")
+
+            X = np.array([int(y) for y in year_cols])
+            Y = values.values
+
+            model = np.poly1d(np.polyfit(X, Y, 1))
+            next_year = int(year_cols[-1]) + 1
+            pred = model(next_year)
+
+            story.append(Paragraph(f"<b>{metric} ({next_year}):</b> {pred:,.2f}", styles["Normal"]))
+
+
+        # ----------------------------------------
+        # 📌 Anomaly Detection
+        # ----------------------------------------
+        story.append(Paragraph("<b>Anomaly Check</b>", styles["Heading2"]))
+
+        for _, row in cat_df.iterrows():
+
+            metric = row[metrics_col]
+            values = pd.to_numeric(row[year_cols], errors="coerce")
+
+            mean = values.mean()
+            std = values.std()
+
+            anomalies = [y for y, v in zip(year_cols, values) if abs(v - mean) > 2 * std]
+
+            if anomalies:
+                story.append(Paragraph(f"<b>{metric} anomalies:</b> {', '.join(anomalies)}", styles["Normal"]))
+            else:
+                story.append(Paragraph(f"<b>{metric}:</b> No anomalies detected.", styles["Normal"]))
+
+        story.append(PageBreak())
+
+
+    # =======================================
+    # 📘 FINAL SUMMARY PAGE
+    # =======================================
+    story.append(Paragraph("<b>Overall Sustainability Summary</b>", styles["Heading1"]))
+    story.append(Spacer(1, 15))
+
+    story.append(Paragraph("This automated GRI report includes full KPI evaluation, trends, prediction, and anomaly detection for categories 302, 303, 305, 306.", styles["Normal"]))
+    story.append(Spacer(1, 15))
+
+
     doc.build(story)
     buffer.seek(0)
     return buffer
