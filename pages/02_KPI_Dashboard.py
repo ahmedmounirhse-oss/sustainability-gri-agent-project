@@ -7,6 +7,7 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
 
 from src.company_data_loader import (
     list_company_files,
@@ -15,13 +16,13 @@ from src.company_data_loader import (
 )
 
 # =========================================
-# PAGE CONFIG
+# ✅ PAGE CONFIG
 # =========================================
-st.set_page_config(page_title="Advanced KPI Dashboard", layout="wide")
-st.title("📊 Advanced KPI Dashboard — Gauges | Comparison | Prediction | Anomaly")
+st.set_page_config(page_title="KPI Dashboard", layout="wide")
+st.title("📊 KPI Dashboard — Gauges | Comparison | Prediction | Anomaly")
 
 # =========================================
-# SELECT COMPANY
+# ✅ SELECT COMPANY
 # =========================================
 files = list_company_files()
 
@@ -34,15 +35,14 @@ company_name = company_file.replace(".xlsx", "")
 df = load_company_file(company_file)
 
 # =========================================
-# SELECT CATEGORY
+# ✅ SELECT CATEGORY
 # =========================================
 categories = sorted(df["Category"].dropna().unique().tolist())
 selected_category = st.selectbox("📊 Select Sustainability Category", categories)
-
 cat_df = df[df["Category"] == selected_category]
 
 # =========================================
-# KPI GAUGES
+# ✅ KPI GAUGES
 # =========================================
 st.subheader("📌 KPI Gauges")
 
@@ -69,13 +69,14 @@ def classify_kpi(value):
 if kpis:
     cols = st.columns(3)
     i = 0
+
     for k, v in kpis.items():
 
         unit = ""
         for word, u in UNIT_MAP.items():
             if word in k.lower():
                 unit = u
-                
+
         status, color = classify_kpi(v)
 
         fig = go.Figure(go.Indicator(
@@ -99,7 +100,7 @@ if kpis:
         i += 1
 
 # =========================================
-# YEAR-TO-YEAR COMPARISON
+# ✅ YEAR-TO-YEAR KPI COMPARISON
 # =========================================
 st.subheader("📅 Year-to-Year KPI Comparison")
 
@@ -112,8 +113,8 @@ year_cols = sorted([c for c in cat_df.columns if str(c).isdigit()])
 
 if metric_col and len(year_cols) >= 2:
 
-    year_a = st.selectbox("Select First Year", year_cols, key="y1")
-    year_b = st.selectbox("Select Second Year", year_cols, key="y2")
+    year_a = st.selectbox("Select First Year", year_cols)
+    year_b = st.selectbox("Select Second Year", year_cols, index=1)
 
     comp_df = cat_df[[metric_col, year_a, year_b]].dropna()
 
@@ -136,7 +137,7 @@ if metric_col and len(year_cols) >= 2:
             st.info(f"⚖️ {row[metric_col]} remained stable")
 
 # =========================================
-# KPI PREDICTION
+# ✅ KPI PREDICTION — NEXT YEAR
 # =========================================
 st.subheader("🔮 KPI Prediction for Next Year")
 
@@ -160,10 +161,11 @@ if metric_col and len(year_cols) >= 3:
         predicted_value = model(next_year)
 
         fig = go.Figure()
-
-        fig.add_trace(go.Scatter(x=year_cols[:len(values)], y=y, mode="lines+markers", name="Historical"))
+        fig.add_trace(go.Scatter(x=year_cols[:len(values)], y=y,
+                                 mode="lines+markers", name="Historical"))
         fig.add_trace(go.Scatter(x=[str(next_year)], y=[predicted_value],
-                                 mode="markers", marker=dict(size=12, color="red"),
+                                 mode="markers",
+                                 marker=dict(size=12, color="red"),
                                  name="Predicted"))
 
         fig.update_layout(title=row[metric_col])
@@ -172,7 +174,7 @@ if metric_col and len(year_cols) >= 3:
         st.info(f"🔮 Predicted {row[metric_col]} in {next_year}: {round(predicted_value, 2)}")
 
 # =========================================
-# YEARLY ANOMALY DETECTION + EXPLANATION + PDF
+# ✅ YEARLY ANOMALY DETECTION + EXPLANATION + PDF
 # =========================================
 st.markdown("---")
 st.subheader("🚨 Anomaly Detection (Yearly KPIs)")
@@ -195,9 +197,9 @@ if kpis:
 
         anomaly_idx = np.where(np.abs(z_scores) > 1.8)[0]
 
-        # ===== PLOT =====
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=years, y=values_arr, mode="lines+markers", name="Values"))
+        fig.add_trace(go.Scatter(x=years, y=values_arr,
+                                 mode="lines+markers", name="Values"))
 
         if len(anomaly_idx) > 0:
             fig.add_trace(go.Scatter(
@@ -211,20 +213,17 @@ if kpis:
         fig.update_layout(title=f"{anomaly_metric} — Yearly Anomaly Detection")
         st.plotly_chart(fig, use_container_width=True)
 
-        # ===== EXPLANATION =====
         anomaly_records = []
         explanations = []
-
-        latest_kpi_value = kpis[anomaly_metric]
 
         for idx in anomaly_idx:
             year = years[idx]
             val = values_arr[idx]
 
             if val > mean_val:
-                exp = f"In {year}, {anomaly_metric} spiked significantly above expected environmental levels."
+                exp = f"In {year}, {anomaly_metric} spiked abnormally above normal levels."
             else:
-                exp = f"In {year}, {anomaly_metric} dropped sharply below typical performance."
+                exp = f"In {year}, {anomaly_metric} dropped abnormally below expected levels."
 
             explanations.append(exp)
 
@@ -236,31 +235,25 @@ if kpis:
             ])
 
         if not anomaly_records:
-            st.success("✅ No anomalies detected.")
+            st.success("✅ No significant anomalies detected.")
         else:
-            st.error("⚠️ Environmental anomalies detected:")
+            st.error("⚠️ Anomalies detected:")
             for exp in explanations:
                 st.warning("• " + exp)
 
-            # KPI RISK LINK
-            if latest_kpi_value <= 30:
-                risk_status = "Excellent (Low Risk)"
-            elif latest_kpi_value <= 70:
-                risk_status = "Moderate (Medium Risk)"
-            else:
-                risk_status = "Risky (High Risk)"
-
-            st.info(f"🔗 Current KPI Value ({latest_kpi_value}) indicates: {risk_status}")
-
-            # ========== EXPORT PDF ==========
             if st.button("📄 Export Anomaly Report PDF"):
 
                 buffer = BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
-                styles = st.get_option("theme.base") or {}
-
+                styles = getSampleStyleSheet()
                 elements = []
-                elements.append(Paragraph("Anomaly Detection Report", st.styles["title"]))
+
+                elements.append(Paragraph("Anomaly Detection Report", styles["Title"]))
+                elements.append(Spacer(1, 10))
+
+                elements.append(Paragraph(f"Company: {company_name}", styles["Normal"]))
+                elements.append(Paragraph(f"Category: {selected_category}", styles["Normal"]))
+                elements.append(Paragraph(f"KPI: {anomaly_metric}", styles["Normal"]))
                 elements.append(Spacer(1, 10))
 
                 table_data = [["Year", "Value", "Deviation", "Explanation"]]
@@ -269,7 +262,8 @@ if kpis:
                 table = Table(table_data, colWidths=[60, 80, 80, 260])
                 table.setStyle(TableStyle([
                     ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                    ("GRID", (0,0), (-1,-1), 1, colors.black)
+                    ("GRID", (0,0), (-1,-1), 1, colors.black),
+                    ("FONT", (0,0), (-1,0), "Helvetica-Bold")
                 ]))
 
                 elements.append(table)
