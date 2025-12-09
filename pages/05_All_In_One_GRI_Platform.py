@@ -111,7 +111,7 @@ for col_card, (k, v) in zip(cards, kpis.items()):
     )
 
 # =========================================
-# ✅ KPI GAUGES (UNCHANGED)
+# ✅ KPI GAUGES
 # =========================================
 st.subheader("📌 KPI Gauges Dashboard")
 
@@ -155,7 +155,7 @@ else:
         i += 1
 
 # =========================================
-# ✅ TRENDS + YOY INSIGHT (UNCHANGED)
+# ✅ TRENDS + YOY INSIGHT
 # =========================================
 st.subheader(f"📈 Sustainability Trends — {selected_category}")
 
@@ -186,7 +186,7 @@ for metric in kpis.keys():
         st.info("⚖️ Insight: Performance is stable.")
 
 # =========================================
-# ✅ ✅ ✅ SAME COMPANY – YEAR COMPARISON (NEW)
+# ✅ SAME COMPANY – YEAR COMPARISON
 # =========================================
 st.divider()
 st.subheader("📊 Same Company — Comparison Between Years")
@@ -212,7 +212,65 @@ if compare_years:
         st.plotly_chart(fig, use_container_width=True)
 
 # =========================================
-# ✅ ✅ ✅ ANOMALY DETECTION (SAME COMPANY – YEARLY)
+# ✅ ✅ ✅ PREDICTION FOR NEXT YEAR (NEW)
+# =========================================
+st.divider()
+st.subheader("🔮 Prediction for Next Year (Same Company)")
+
+if len(year_cols) >= 3:
+
+    next_year = int(year_cols[-1]) + 1
+
+    for metric in kpis.keys():
+
+        row = cat_df[cat_df[metric_col] == metric]
+        if row.empty:
+            continue
+
+        values = pd.to_numeric(row[year_cols].iloc[0], errors="coerce").dropna()
+        if len(values) < 3:
+            continue
+
+        x = np.array([int(y) for y in year_cols[:len(values)]])
+        y = values.values
+
+        coeff = np.polyfit(x, y, 1)
+        model = np.poly1d(coeff)
+
+        predicted_value = float(model(next_year))
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter(
+            x=year_cols[:len(values)],
+            y=y,
+            mode="lines+markers",
+            name="Historical"
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=[str(next_year)],
+            y=[predicted_value],
+            mode="markers",
+            marker=dict(size=12, color="red"),
+            name="Predicted"
+        ))
+
+        fig.update_layout(
+            title=f"{metric} — Forecast for {next_year}",
+            xaxis_title="Year",
+            yaxis_title="Value"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.info(f"🔮 Predicted {metric} in {next_year}: {predicted_value:.2f}")
+
+else:
+    st.warning("⚠️ Not enough historical data for prediction (minimum 3 years required).")
+
+# =========================================
+# ✅ ANOMALY DETECTION (SAME COMPANY – YEARLY)
 # =========================================
 st.divider()
 st.subheader("🚨 Anomaly Detection (Same Company — Yearly)")
@@ -291,7 +349,7 @@ if comp_a_file and comp_b_file:
         st.plotly_chart(fig, use_container_width=True)
 
 # =========================================
-# ✅ PDF EXPORT (UNCHANGED)
+# ✅ PDF EXPORT
 # =========================================
 st.divider()
 st.subheader("📄 Generate Professional GRI Company Report")
@@ -316,7 +374,7 @@ if "company_pdf" in st.session_state:
     )
 
 # =========================================
-# ✅ EMAIL (UNCHANGED)
+# ✅ EMAIL
 # =========================================
 st.subheader("📧 Send Report by Email")
 email = st.text_input("Receiver Email")
