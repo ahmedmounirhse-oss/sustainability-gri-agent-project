@@ -1,278 +1,330 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-
+import plotly.express as px
+import numpy as np
+import pandas as pd
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-from src.company_data_loader import (
-    list_company_files,
-    load_company_file,
-    compute_kpis_by_category
+from src.data_loader import (
+    list_available_years,
+    get_kpi_block,
 )
 
-# =========================================
-# ✅ PAGE CONFIG
-# =========================================
-st.set_page_config(page_title="KPI Dashboard", layout="wide")
-st.title("📊 KPI Dashboard — Gauges | Comparison | Prediction | Anomaly")
+st.set_page_config(
+    page_title="Sustainability KPI Dashboard",
+    layout="wide",
+)
 
-# =========================================
-# ✅ SELECT COMPANY
-# =========================================
-files = list_company_files()
+# =========================
+# ✅ YEAR SELECTION
+# =========================
+years_dict = list_available_years()
 
-if not files:
-    st.error("❌ No company files found in data/companies")
+if not years_dict:
+    st.error("❌ No Excel files found inside data/Excel folder.")
     st.stop()
 
-company_file = st.selectbox("📂 Select Company", files)
-company_name = company_file.replace(".xlsx", "")
-df = load_company_file(company_file)
+years = sorted(list(years_dict.keys()))
+selected_year = int(st.sidebar.selectbox("📅 Select Reporting Year", years))
 
-# =========================================
-# ✅ SELECT CATEGORY
-# =========================================
-categories = sorted(df["Category"].dropna().unique().tolist())
-selected_category = st.selectbox("📊 Select Sustainability Category", categories)
-cat_df = df[df["Category"] == selected_category]
+# ✅ السنة السابقة تلقائي
+prev_year = None
+if selected_year in years:
+    idx = years.index(selected_year)
+    if idx > 0:
+        prev_year = years[idx - 1]
 
-# =========================================
-# ✅ KPI GAUGES
-# =========================================
-st.subheader("📌 KPI Gauges")
+# =========================
+# ✅ LOAD KPI DATA (CURRENT YEAR)
+# =========================
+energy    = get_kpi_block(selected_year, "Energy")
+water     = get_kpi_block(selected_year, "Water")
+emission  = get_kpi_block(selected_year, "Emission")
+waste     = get_kpi_block(selected_year, "Waste")
 
-kpis = compute_kpis_by_category(df, selected_category)
+# =========================
+# ✅ LOAD PREVIOUS YEAR (IF EXISTS)
+# =========================
+if prev_year:
+    energy_prev   = get_kpi_block(prev_year, "Energy")
+    water_prev    = get_kpi_block(prev_year, "Water")
+    emission_prev = get_kpi_block(prev_year, "Emission")
+    waste_prev    = get_kpi_block(prev_year, "Waste")
+else:
+    energy_prev = water_prev = emission_prev = waste_prev = None
 
-UNIT_MAP = {
-    "energy": "GJ",
-    "electric": "MWh",
-    "water": "m³",
-    "emission": "tCO₂e",
-    "carbon": "tCO₂e",
-    "waste": "tons",
-    "intensity": "kg/BOE"
+# =========================
+# ✅ SMART KPI CALCULATOR
+# =========================
+def smart_kpi(current, previous):
+    if not previous or previous["total"] == 0:
+        return current["total"], "N/A", "➖"
+
+    diff = current["total"] - previous["total"]
+    pct = (diff / previous["total"]) * 100
+
+    arrow = "⬆️" if diff > 0 else "⬇️" if diff < 0 else "➖"
+    pct_text = f"{pct:.1f}%"
+
+    return current["total"], pct_text, arrow
+
+
+e_val, e_pct, e_arrow = smart_kpi(energy, energy_prev)
+w_val, w_pct, w_arrow = smart_kpi(water, water_prev)
+em_val, em_pct, em_arrow = smart_kpi(emission, emission_prev)
+wa_val, wa_pct, wa_arrow = smart_kpi(waste, waste_prev)
+
+# =========================
+# ✅ HEADER
+# =========================
+st.title("📊 Sustainability KPI Dashboard")
+st.caption("Smart KPI Cards + Drill-Down Analytics")
+
+# =========================
+# ✅ SMART KPI CARDS
+# =========================
+st.subheader("📌 Smart KPI Cards (YoY Comparison)")
+
+k1, k2, k3, k4 = st.columns(4)
+
+with k1:
+    st.metric("⚡ Energy (GRI 302)", f"{e_val:,.0f} {energy['unit']}", delta=f"{e_arrow} {e_pct}")
+with k2:
+    st.metric("💧 Water (GRI 303)", f"{w_val:,.0f} {water['unit']}", delta=f"{w_arrow} {w_pct}")
+with k3:
+    st.metric("🌍 Emissions (GRI 305)", f"{em_val:,.0f} {emission['unit']}", delta=f"{em_arrow} {em_pct}")
+with k4:
+    st.metric("♻️ Waste (GRI 306)", f"{wa_val:,.0f} {waste['unit']}", delta=f"{wa_arrow} {wa_pct}")
+
+st.markdown("---")
+
+# =========================
+# ✅ MONTHLY TRENDS
+# =========================
+st.subheader("📈 Monthly KPI Trends")
+
+def monthly_chart(title, monthly, unit):
+    if not monthly:
+        fig = go.Figure()
+        fig.add_annotation(text="No Monthly Data", showarrow=False)
+        return fig
+
+    months = list(range(1, len(monthly) + 1))
+    fig = px.line(
+        x=months,
+        y=monthly,
+        markers=True,
+        labels={"x": "Month", "y": unit},
+        title=title,
+    )
+    fig.update_traces(mode="lines+markers")
+    return fig
+
+c1, c2 = st.columns(2)
+c3, c4 = st.columns(2)
+
+c1.plotly_chart(monthly_chart("Energy Trend", energy["monthly"], energy["unit"]), use_container_width=True)
+c2.plotly_chart(monthly_chart("Water Trend", water["monthly"], water["unit"]), use_container_width=True)
+c3.plotly_chart(monthly_chart("Emissions Trend", emission["monthly"], emission["unit"]), use_container_width=True)
+c4.plotly_chart(monthly_chart("Waste Trend", waste["monthly"], waste["unit"]), use_container_width=True)
+
+# =========================
+# ✅ DRILL-DOWN ANALYTICS
+# =========================
+st.subheader("🔎 Smart Drill-Down Analytics")
+
+kpi_map = {
+    "Energy": energy,
+    "Water": water,
+    "Emissions": emission,
+    "Waste": waste,
 }
 
-def classify_kpi(value):
-    if value <= 30:
-        return "Excellent", "green"
-    elif value <= 70:
-        return "Moderate", "orange"
-    else:
-        return "Risky", "red"
+selected_kpi = st.selectbox("Select KPI for Drill-Down Analysis", list(kpi_map.keys()))
+kpi_data = kpi_map[selected_kpi]
 
-if kpis:
-    cols = st.columns(3)
-    i = 0
+monthly_vals = kpi_data["monthly"]
 
-    for k, v in kpis.items():
+if monthly_vals:
+    months = list(range(1, len(monthly_vals) + 1))
 
-        unit = ""
-        for word, u in UNIT_MAP.items():
-            if word in k.lower():
-                unit = u
+    peak_value = max(monthly_vals)
+    low_value = min(monthly_vals)
+    avg_value = np.mean(monthly_vals)
 
-        status, color = classify_kpi(v)
+    peak_month = months[monthly_vals.index(peak_value)]
+    low_month = months[monthly_vals.index(low_value)]
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=float(v),
-            number={"suffix": f" {unit}"},
-            title={"text": f"{k}<br><span style='color:{color}'>{status}</span>"},
-            gauge={
-                "axis": {"range": [0, max(100, v * 1.5)]},
-                "bar": {"color": color},
-                "steps": [
-                    {"range": [0, 30], "color": "#9be7a1"},
-                    {"range": [30, 70], "color": "#ffd966"},
-                    {"range": [70, 100], "color": "#f28b82"}
-                ]
-            }
-        ))
+    a1, a2, a3 = st.columns(3)
 
-        with cols[i % 3]:
-            st.plotly_chart(fig, use_container_width=True)
-        i += 1
+    a1.metric("🔺 Peak Month", f"Month {peak_month}", f"{peak_value:,.1f} {kpi_data['unit']}")
+    a2.metric("🔻 Lowest Month", f"Month {low_month}", f"{low_value:,.1f} {kpi_data['unit']}")
+    a3.metric("📉 Monthly Average", f"{avg_value:,.1f}", kpi_data["unit"])
 
-# =========================================
-# ✅ YEAR-TO-YEAR KPI COMPARISON
-# =========================================
-st.subheader("📅 Year-to-Year KPI Comparison")
+    dist_fig = px.bar(
+        x=months,
+        y=monthly_vals,
+        labels={"x": "Month", "y": kpi_data["unit"]},
+        title=f"{selected_kpi} Monthly Distribution"
+    )
+    st.plotly_chart(dist_fig, use_container_width=True)
 
-metric_col = None
-for col in cat_df.columns:
-    if "metric" in col.lower():
-        metric_col = col
+else:
+    st.info("No monthly data available for this KPI.")
 
-year_cols = sorted([c for c in cat_df.columns if str(c).isdigit()])
+# =========================
+# ✅ DRILL-DOWN RAW DATA
+# =========================
+st.subheader("🧾 Drill-Down Raw Data")
 
-if metric_col and len(year_cols) >= 2:
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Energy Data", "Water Data", "Emissions Data", "Waste Data"
+])
 
-    year_a = st.selectbox("Select First Year", year_cols)
-    year_b = st.selectbox("Select Second Year", year_cols, index=1)
+with tab1:
+    st.dataframe(energy["raw"], use_container_width=True)
+with tab2:
+    st.dataframe(water["raw"], use_container_width=True)
+with tab3:
+    st.dataframe(emission["raw"], use_container_width=True)
+with tab4:
+    st.dataframe(waste["raw"], use_container_width=True)
 
-    comp_df = cat_df[[metric_col, year_a, year_b]].dropna()
-
-    for _, row in comp_df.iterrows():
-
-        fig = go.Figure()
-        fig.add_trace(go.Bar(name=str(year_a), x=[row[metric_col]], y=[row[year_a]]))
-        fig.add_trace(go.Bar(name=str(year_b), x=[row[metric_col]], y=[row[year_b]]))
-
-        fig.update_layout(barmode="group", height=350, title=row[metric_col])
-        st.plotly_chart(fig, use_container_width=True)
-
-        delta = row[year_b] - row[year_a]
-
-        if delta > 0:
-            st.warning(f"📈 {row[metric_col]} increased by {round(delta, 2)}")
-        elif delta < 0:
-            st.success(f"✅ {row[metric_col]} decreased by {round(abs(delta), 2)}")
-        else:
-            st.info(f"⚖️ {row[metric_col]} remained stable")
-
-# =========================================
-# ✅ KPI PREDICTION — NEXT YEAR
-# =========================================
-st.subheader("🔮 KPI Prediction for Next Year")
-
-if metric_col and len(year_cols) >= 3:
-
-    next_year = int(year_cols[-1]) + 1
-
-    for _, row in cat_df.iterrows():
-
-        values = pd.to_numeric(row[year_cols], errors="coerce").dropna()
-
-        if len(values) < 3:
-            continue
-
-        x = np.array([int(y) for y in year_cols[:len(values)]])
-        y = values.values
-
-        coeff = np.polyfit(x, y, 1)
-        model = np.poly1d(coeff)
-
-        predicted_value = model(next_year)
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=year_cols[:len(values)], y=y,
-                                 mode="lines+markers", name="Historical"))
-        fig.add_trace(go.Scatter(x=[str(next_year)], y=[predicted_value],
-                                 mode="markers",
-                                 marker=dict(size=12, color="red"),
-                                 name="Predicted"))
-
-        fig.update_layout(title=row[metric_col])
-        st.plotly_chart(fig, use_container_width=True)
-
-        st.info(f"🔮 Predicted {row[metric_col]} in {next_year}: {round(predicted_value, 2)}")
-
-# =========================================
-# ✅ YEARLY ANOMALY DETECTION + EXPLANATION + PDF
-# =========================================
+# =========================================================
+# ✅✅✅ EXPORT SECTION (USING OPENPYXL ONLY)
+# =========================================================
 st.markdown("---")
-st.subheader("🚨 Anomaly Detection (Yearly KPIs)")
+st.subheader("📤 Export")
 
-if kpis:
+# ---------- Export KPI Summary to Excel ----------
+export_kpi_df = pd.DataFrame({
+    "KPI": ["Energy", "Water", "Emissions", "Waste"],
+    "Value": [energy["total"], water["total"], emission["total"], waste["total"]],
+    "Unit": [energy["unit"], water["unit"], emission["unit"], waste["unit"]],
+})
 
-    anomaly_metric = st.selectbox("Select KPI for Anomaly Analysis", list(kpis.keys()))
+excel_buffer = BytesIO()
+with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    export_kpi_df.to_excel(writer, index=False, sheet_name="KPI Summary")
 
-    selected_row = cat_df[cat_df[metric_col] == anomaly_metric]
+st.download_button(
+    "⬇ Export KPI Summary (Excel)",
+    data=excel_buffer.getvalue(),
+    file_name=f"KPI_Summary_{selected_year}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
-    if not selected_row.empty and len(year_cols) >= 3:
+# ---------- Export FULL RAW DATA to Excel ----------
+raw_buffer = BytesIO()
+with pd.ExcelWriter(raw_buffer, engine="openpyxl") as writer:
+    energy["raw"].to_excel(writer, sheet_name="Energy", index=False)
+    water["raw"].to_excel(writer, sheet_name="Water", index=False)
+    emission["raw"].to_excel(writer, sheet_name="Emissions", index=False)
+    waste["raw"].to_excel(writer, sheet_name="Waste", index=False)
 
-        values = pd.to_numeric(selected_row[year_cols].iloc[0], errors="coerce").dropna()
-        years = [int(y) for y in year_cols[:len(values)]]
-        values_arr = values.values
+st.download_button(
+    "⬇ Export Full Raw Data (Excel)",
+    data=raw_buffer.getvalue(),
+    file_name=f"Raw_Data_{selected_year}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
-        mean_val = values_arr.mean()
-        std_val = values_arr.std()
-        z_scores = (values_arr - mean_val) / std_val
+# ---------- Export Mini PDF Summary ----------
+styles = getSampleStyleSheet()
+pdf_buffer = BytesIO()
+doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
 
-        anomaly_idx = np.where(np.abs(z_scores) > 1.8)[0]
+elements = [
+    Paragraph("KPI Summary Report", styles["Title"]),
+    Spacer(1, 12),
+    Paragraph(f"Reporting Year: {selected_year}", styles["Normal"]),
+    Spacer(1, 12),
+]
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=years, y=values_arr,
-                                 mode="lines+markers", name="Values"))
+for _, row in export_kpi_df.iterrows():
+    elements.append(
+        Paragraph(f"{row['KPI']}: {row['Value']} {row['Unit']}", styles["Normal"])
+    )
 
-        if len(anomaly_idx) > 0:
-            fig.add_trace(go.Scatter(
-                x=[years[i] for i in anomaly_idx],
-                y=[values_arr[i] for i in anomaly_idx],
-                mode="markers",
-                marker=dict(size=12, color="red"),
-                name="Anomalies"
-            ))
+doc.build(elements)
 
-        fig.update_layout(title=f"{anomaly_metric} — Yearly Anomaly Detection")
-        st.plotly_chart(fig, use_container_width=True)
+st.download_button(
+    "⬇ Export Mini PDF Summary",
+    data=pdf_buffer.getvalue(),
+    file_name=f"KPI_Summary_{selected_year}.pdf",
+    mime="application/pdf",
+)
+# =========================================================
+# ✅✅✅ MULTI-YEAR COMPARISON (REPLACES EXECUTIVE)
+# =========================================================
+st.markdown("---")
+st.subheader("📊 Year-to-Year KPI Comparison")
 
-        anomaly_records = []
-        explanations = []
+# ✅ اختيار KPI للمقارنة
+compare_kpi = st.selectbox(
+    "Select KPI to Compare Across Years",
+    ["Energy", "Water", "Emissions", "Waste"]
+)
 
-        for idx in anomaly_idx:
-            year = years[idx]
-            val = values_arr[idx]
+# ✅ اختيار السنوات للمقارنة
+compare_years = st.multiselect(
+    "Select Years",
+    years,
+    default=years[-3:] if len(years) >= 3 else years
+)
 
-            if val > mean_val:
-                exp = f"In {year}, {anomaly_metric} spiked abnormally above normal levels."
-            else:
-                exp = f"In {year}, {anomaly_metric} dropped abnormally below expected levels."
+# ✅ دالة سحب القيم حسب السنة
+def get_kpi_total_by_year(year, kpi_name):
+    k = get_kpi_block(int(year), kpi_name)
+    return k["total"]
 
-            explanations.append(exp)
+# ✅ تجهيز الداتا
+comparison_data = []
+for y in compare_years:
+    comparison_data.append(get_kpi_total_by_year(y, compare_kpi))
 
-            anomaly_records.append([
-                str(year),
-                round(val, 2),
-                round(val - mean_val, 2),
-                exp
-            ])
+# ✅ رسم المقارنة
+if compare_years and comparison_data:
 
-        if not anomaly_records:
-            st.success("✅ No significant anomalies detected.")
-        else:
-            st.error("⚠️ Anomalies detected:")
-            for exp in explanations:
-                st.warning("• " + exp)
+    compare_fig = go.Figure()
 
-            if st.button("📄 Export Anomaly Report PDF"):
+    compare_fig.add_trace(
+        go.Scatter(
+            x=compare_years,
+            y=comparison_data,
+            mode="lines+markers",
+            name=compare_kpi,
+        )
+    )
 
-                buffer = BytesIO()
-                doc = SimpleDocTemplate(buffer, pagesize=A4)
-                styles = getSampleStyleSheet()
-                elements = []
+    compare_fig.update_layout(
+        title=f"{compare_kpi} Comparison Across Years",
+        xaxis_title="Year",
+        yaxis_title=f"{compare_kpi} Value",
+    )
 
-                elements.append(Paragraph("Anomaly Detection Report", styles["Title"]))
-                elements.append(Spacer(1, 10))
+    st.plotly_chart(compare_fig, use_container_width=True)
 
-                elements.append(Paragraph(f"Company: {company_name}", styles["Normal"]))
-                elements.append(Paragraph(f"Category: {selected_category}", styles["Normal"]))
-                elements.append(Paragraph(f"KPI: {anomaly_metric}", styles["Normal"]))
-                elements.append(Spacer(1, 10))
+    # ✅ Bar Chart للمقارنة
+    bar_fig = px.bar(
+        x=compare_years,
+        y=comparison_data,
+        labels={"x": "Year", "y": f"{compare_kpi} Value"},
+        title=f"{compare_kpi} Bar Comparison"
+    )
 
-                table_data = [["Year", "Value", "Deviation", "Explanation"]]
-                table_data.extend(anomaly_records)
+    st.plotly_chart(bar_fig, use_container_width=True)
 
-                table = Table(table_data, colWidths=[60, 80, 80, 260])
-                table.setStyle(TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                    ("GRID", (0,0), (-1,-1), 1, colors.black),
-                    ("FONT", (0,0), (-1,0), "Helvetica-Bold")
-                ]))
+    # ✅ جدول أرقام المقارنة
+    compare_df = pd.DataFrame({
+        "Year": compare_years,
+        f"{compare_kpi} Total": comparison_data
+    })
 
-                elements.append(table)
-                doc.build(elements)
-                buffer.seek(0)
+    st.dataframe(compare_df, use_container_width=True)
 
-                st.download_button(
-                    "⬇ Download Anomaly PDF Report",
-                    data=buffer.getvalue(),
-                    file_name=f"{company_name}_{anomaly_metric}_Anomaly_Report.pdf",
-                    mime="application/pdf"
-                )
+else:
+    st.info("Please select at least one year for comparison.")
