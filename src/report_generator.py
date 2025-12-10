@@ -1,8 +1,13 @@
+# =========================================
+# ✅ FINAL PROFESSIONAL GRI PDF REPORT GENERATOR
+# ✅ Colored Charts + Table of Contents + Page Numbers + Footer
+# ✅ Cover Page + GRI 302 / 303 / 305 / 306 + Appendix
+# =========================================
+
 from io import BytesIO
-from typing import List
+import os
 
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 
 from reportlab.lib import colors
@@ -11,18 +16,47 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    PageBreak,
+    Image,
+    TableOfContents
 )
 
-from .config import INDICATORS
-from .data_loader import load_indicator
-from .kpi_service import compute_yearly_totals, forecast_next_year
-from .reporting import build_indicator_narrative
+# --------------------------- PATHS ----------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+LOCAL_LOGO_PATH = os.path.join(ASSETS_DIR, "company_logo.png")
 
-# --------------------------- LOGO PATH ----------------------------
-LOCAL_LOGO_PATH = "assets/company_logo.png"
+# --------------------------- STYLES ----------------------------
+def _get_styles():
+    styles = getSampleStyleSheet()
 
-# ---------------------- CHART GENERATOR --------------------------
+    styles.add(ParagraphStyle(
+        name="CenterTitle",
+        parent=styles["Title"],
+        alignment=TA_CENTER
+    ))
+
+    styles.add(ParagraphStyle(
+        name="SectionHeader",
+        parent=styles["Heading2"],
+        spaceAfter=12,
+        textColor=colors.HexColor("#0A3D62")
+    ))
+
+    styles.add(ParagraphStyle(
+        name="NormalSmall",
+        parent=styles["Normal"],
+        fontSize=9
+    ))
+
+    return styles
+
+# ---------------------- COLORED CHART GENERATOR --------------------------
 def _plot_yearly_trend(yearly_df, title: str, unit: str) -> BytesIO:
     buf = BytesIO()
 
@@ -30,10 +64,16 @@ def _plot_yearly_trend(yearly_df, title: str, unit: str) -> BytesIO:
     vals = yearly_df["total_value"]
 
     plt.figure(figsize=(7, 3), dpi=140)
-    plt.plot(years, vals, marker="o", linewidth=2)
+    plt.plot(
+        years, vals,
+        marker="o",
+        linewidth=2.5,
+        color="#0A3D62"
+    )
+    plt.fill_between(years, vals, color="#6fa8dc", alpha=0.25)
     plt.title(title, fontsize=11)
     plt.ylabel(unit, fontsize=9)
-    plt.grid(axis="y", linestyle="--", alpha=0.6)
+    plt.grid(axis="y", linestyle="--", alpha=0.5)
     plt.tight_layout()
     plt.savefig(buf, format="png", bbox_inches="tight")
     plt.close()
@@ -48,17 +88,32 @@ def _format_num(x):
     except Exception:
         return str(x)
 
-# -------------------- OUTLOOK BUILDER ----------------------------
-def _build_outlook_text(predicted_value: float, unit: str, next_year: int) -> str:
-    return (
-        f"The projected performance for <b>{next_year}</b> is estimated at "
-        f"<b>{_format_num(predicted_value)} {unit}</b>. "
-        f"This outlook reflects current operational patterns, historical trends, "
-        f"and expected conditions influencing future performance."
-    )
+# -------------------- FOOTER (PAGE NUMBER + COMPANY) ---------------------
+def _footer(canvas, doc, company_name: str):
+    canvas.saveState()
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(colors.grey)
 
-# ---------------------- MAIN REPORT BUILDER ----------------------
-def build_gri_pdf_report(year: int) -> BytesIO:
+    footer_text = f"{company_name} | Page {canvas.getPageNumber()}"
+    canvas.drawRightString(20 * cm, 1.2 * cm, footer_text)
+
+    canvas.restoreState()
+
+# ---------------------- MAIN REPORT BUILDER ------------------------------
+def build_full_gri_report(company_name: str, gri_data_dict: dict) -> BytesIO:
+    """
+    gri_data_dict format:
+    {
+        "302": yearly_energy_df,
+        "303": yearly_water_df,
+        "305": yearly_emissions_df,
+        "306": yearly_waste_df
+    }
+
+    Each yearly dataframe MUST contain:
+    [Year, total_value]
+    """
+
     buffer = BytesIO()
 
     doc = SimpleDocTemplate(
@@ -68,96 +123,74 @@ def build_gri_pdf_report(year: int) -> BytesIO:
         rightMargin=2 * cm,
         topMargin=1.7 * cm,
         bottomMargin=1.5 * cm,
-        title=f"Sustainability GRI Report {year}",
+        title=f"GRI Sustainability Report - {company_name}",
     )
 
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="CenterTitle", parent=styles["Title"], alignment=TA_CENTER))
-    styles.add(ParagraphStyle(name="SectionHeader", parent=styles["Heading2"], spaceAfter=12, textColor=colors.HexColor("#0A3D62")))
-    styles.add(ParagraphStyle(name="NormalSmall", parent=styles["Normal"], fontSize=9))
-
+    styles = _get_styles()
     story = []
 
     # ============================ COVER PAGE ================================
-    try:
+    if os.path.exists(LOCAL_LOGO_PATH):
         logo = Image(LOCAL_LOGO_PATH, width=6 * cm, height=6 * cm)
         logo.hAlign = "CENTER"
         story.append(Spacer(1, 2 * cm))
         story.append(logo)
-    except Exception:
+    else:
         story.append(Spacer(1, 3 * cm))
 
     story.append(Spacer(1, 0.8 * cm))
-    story.append(Paragraph("<b>Sustainability GRI Report</b>", styles["CenterTitle"]))
+    story.append(Paragraph(f"<b>{company_name}</b>", styles["CenterTitle"]))
     story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph(f"Reporting Year: <b>{year}</b>", styles["CenterTitle"]))
-    story.append(Spacer(1, 10 * cm))
-    story.append(Paragraph("Generated by GRI AI Analysis Platform", styles["Normal"]))
+    story.append(Paragraph("Sustainability GRI Performance Report", styles["CenterTitle"]))
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(Paragraph("In accordance with GRI Standards", styles["Normal"]))
+
+    story.append(Spacer(1, 9 * cm))
+    story.append(Paragraph("Generated by GRI AI Analysis Platform", styles["NormalSmall"]))
     story.append(PageBreak())
 
-    # ========================== EXECUTIVE SUMMARY ===========================
-    story.append(Paragraph("Executive Summary", styles["SectionHeader"]))
-
-    exec_lines = []
-    for key, meta in INDICATORS.items():
-        df = load_indicator(key)
-        yearly = compute_yearly_totals(df)
-
-        row = yearly[yearly["Year"] == year]
-        if row.empty:
-            exec_lines.append(f"- {meta.kpi_name}: No data for {year}.")
-            continue
-
-        r = row.iloc[0]
-        total = r["total_value"]
-        pct = r["change_pct"]
-
-        if pd.isna(pct):
-            trend_word = "stable"
-        elif pct > 0:
-            trend_word = f"increased by {pct:.1f}%"
-        else:
-            trend_word = f"decreased by {abs(pct):.1f}%"
-
-        exec_lines.append(
-            f"- {meta.kpi_name} ({meta.gri_code}): "
-            f"{_format_num(total)} {df['Unit'].iloc[0]} ({trend_word})."
-        )
-
-    story.append(Paragraph("<br/>".join(exec_lines), styles["NormalSmall"]))
+    # ============================ TABLE OF CONTENTS =========================
+    story.append(Paragraph("Table of Contents", styles["SectionHeader"]))
+    toc = TableOfContents()
+    toc.levelStyles = [
+        ParagraphStyle(fontSize=11, name='TOCHeading1', leftIndent=20, firstLineIndent=-20, spaceBefore=5),
+    ]
+    story.append(toc)
     story.append(PageBreak())
 
-    # ========================== INDICATOR SECTIONS ==========================
-    for key, meta in INDICATORS.items():
+    # ============================ GRI SECTIONS ===============================
+    gri_titles = {
+        "302": "Energy Consumption (GRI 302)",
+        "303": "Water Management (GRI 303)",
+        "305": "Emissions (GRI 305)",
+        "306": "Waste Management (GRI 306)",
+    }
 
-        df = load_indicator(key)
-        yearly = compute_yearly_totals(df)
+    for gri_code, title in gri_titles.items():
 
-        row = yearly[yearly["Year"] == year]
+        story.append(Paragraph(title, styles["SectionHeader"]))
+        story.append(Spacer(1, 0.4 * cm))
 
-        story.append(Paragraph(meta.kpi_name, styles["SectionHeader"]))
-        story.append(Paragraph(f"GRI Reference: <b>{meta.gri_code}</b>", styles["Normal"]))
-        story.append(Spacer(1, 0.3 * cm))
+        yearly_df = gri_data_dict.get(gri_code)
 
-        if row.empty:
-            story.append(Paragraph("No data available.", styles["Normal"]))
+        if yearly_df is None or yearly_df.empty:
+            story.append(Paragraph("No data available for this GRI section.", styles["Normal"]))
             story.append(PageBreak())
             continue
 
-        r = row.iloc[0]
-        total = r["total_value"]
-        unit = df["Unit"].iloc[0]
+        # -------- KPI SUMMARY TABLE --------
+        latest = yearly_df.sort_values("Year").iloc[-1]
+        latest_year = int(latest["Year"])
+        latest_value = latest["total_value"]
 
-        # -------- KPI TABLE --------
         kpi_data = [
             ["Metric", "Value"],
-            ["Total", f"{_format_num(total)} {unit}"],
-            ["YoY Change", "n/a" if pd.isna(r['change_abs']) else f"{_format_num(r['change_abs'])} {unit}"],
-            ["YoY % Change", "n/a" if pd.isna(r['change_pct']) else f"{r['change_pct']:.1f}%"],
+            ["Latest Year", str(latest_year)],
+            ["Total", _format_num(latest_value)],
         ]
 
-        table = Table(kpi_data, colWidths=[6 * cm, 8 * cm])
-        table.setStyle(
+        kpi_table = Table(kpi_data, colWidths=[6 * cm, 8 * cm])
+        kpi_table.setStyle(
             TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0A3D62")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -165,101 +198,54 @@ def build_gri_pdf_report(year: int) -> BytesIO:
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ])
         )
-        story.append(table)
+
+        story.append(kpi_table)
         story.append(Spacer(1, 0.4 * cm))
 
-        # -------- TREND CHART --------
-        chart = _plot_yearly_trend(yearly, meta.kpi_name, unit)
-        story.append(Image(chart, width=15 * cm, height=4 * cm))
-        story.append(Spacer(1, 0.4 * cm))
-
-        # -------- NARRATIVE --------
-        narrative = build_indicator_narrative(key, df, year, unit_label=unit)
-        story.append(Paragraph("<b>Narrative</b>", styles["Normal"]))
-        story.append(Paragraph(narrative, styles["NormalSmall"]))
-        story.append(Spacer(1, 0.4 * cm))
-
-        # -------- OUTLOOK --------
-        next_year, prediction = forecast_next_year(yearly)
-        outlook = _build_outlook_text(prediction, unit, next_year)
-
-        story.append(Paragraph("<b>Outlook</b>", styles["Normal"]))
-        story.append(Paragraph(outlook, styles["NormalSmall"]))
-        story.append(Spacer(1, 0.5 * cm))
-
-        # -------- MONTHLY TABLE (SORTED) --------
-        monthly = df[df["Year"] == year].copy()
-
-        if not monthly.empty:
-            month_map = {
-                "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-                "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
-            }
-
-            monthly["Month"] = (
-                monthly["Month"]
-                .astype(str)
-                .str.strip()
-                .str.lower()
-                .apply(lambda x: month_map[x] if x in month_map else int(x))
-            )
-
-            monthly = monthly.sort_values("Month")
-
-            mon_data = [["Month", "Value", "Unit"]]
-            for _, row_m in monthly.iterrows():
-                mon_data.append([
-                    str(row_m["Month"]),
-                    _format_num(row_m["Value"]),
-                    unit
-                ])
-
-            mon_table = Table(mon_data, colWidths=[3 * cm, 4 * cm, 3 * cm])
-            mon_table.setStyle(
-                TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e0e0e0")),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey)
-                ])
-            )
-            story.append(Paragraph("<b>Monthly Data</b>", styles["Normal"]))
-            story.append(mon_table)
-            story.append(Spacer(1, 0.6 * cm))
+        # -------- COLORED TREND CHART --------
+        chart = _plot_yearly_trend(yearly_df, title, "")
+        story.append(Image(chart, width=15 * cm, height=4.5 * cm))
+        story.append(Spacer(1, 0.6 * cm))
 
         story.append(PageBreak())
 
-    # =============================== APPENDIX ==============================
-    story.append(Paragraph("Appendix — Annual Raw Data", styles["SectionHeader"]))
+    # =============================== APPENDIX ===============================
+    story.append(Paragraph("Appendix — Annual Raw Totals", styles["SectionHeader"]))
 
-    for key, meta in INDICATORS.items():
-        df = load_indicator(key)
-        yearly = compute_yearly_totals(df)
+    for gri_code, title in gri_titles.items():
+        yearly_df = gri_data_dict.get(gri_code)
 
-        story.append(Paragraph(meta.kpi_name, styles["Heading4"]))
+        story.append(Paragraph(title, styles["Heading4"]))
 
-        table_data = [["Year", "Total", "Unit"]]
-        for _, r in yearly.iterrows():
+        if yearly_df is None or yearly_df.empty:
+            story.append(Paragraph("No data available.", styles["Normal"]))
+            story.append(Spacer(1, 0.6 * cm))
+            continue
+
+        table_data = [["Year", "Total"]]
+        for _, r in yearly_df.iterrows():
             table_data.append([
                 int(r["Year"]),
-                _format_num(r["total_value"]),
-                df["Unit"].iloc[0]
+                _format_num(r["total_value"])
             ])
 
-        table = Table(table_data, colWidths=[3 * cm, 5 * cm, 3 * cm])
-        table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.25, colors.grey)]))
+        table = Table(table_data, colWidths=[4 * cm, 6 * cm])
+        table.setStyle(
+            TableStyle([
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f2f2")),
+            ])
+        )
+
         story.append(table)
         story.append(Spacer(1, 0.6 * cm))
 
-    # =========================== FINISH DOCUMENT ===========================
-    doc.build(story)
+    # =========================== BUILD DOCUMENT ============================
+    doc.build(
+        story,
+        onFirstPage=lambda canvas, d: _footer(canvas, d, company_name),
+        onLaterPages=lambda canvas, d: _footer(canvas, d, company_name),
+    )
+
     buffer.seek(0)
-
     return buffer
-
-
-# ---------------------- AVAILABLE YEARS --------------------------
-def get_available_years_for_reports() -> List[int]:
-    years = set()
-    for key in INDICATORS.keys():
-        df = load_indicator(key)
-        years.update(df["Year"].unique().tolist())
-    return sorted(list(years))
