@@ -15,7 +15,7 @@ st.set_page_config(page_title="Monthly Sustainability Data Explorer", layout="wi
 st.title("📊 Monthly Sustainability Data Explorer")
 
 # =========================================
-# FILE SELECTION
+# FILES DETECTION
 # =========================================
 if not os.path.exists(DATA_DIR):
     st.error("❌ Folder data/Excel not found")
@@ -31,27 +31,25 @@ file_name = st.selectbox("📂 Select Monthly File", files)
 file_path = os.path.join(DATA_DIR, file_name)
 
 # =========================================
-# LOAD ALL SHEETS (Energy, Water, Emission, Waste)
+# LOAD ALL SHEETS FROM SELECTED FILE
 # =========================================
 xls = pd.ExcelFile(file_path)
 all_data = []
 
 for sheet in xls.sheet_names:
-    df = pd.read_excel(file_path, sheet_name=sheet)
+    df_sheet = pd.read_excel(file_path, sheet_name=sheet)
 
-    df.columns = df.columns.astype(str).str.strip()
+    df_sheet.columns = df_sheet.columns.astype(str).str.strip()
+    df_sheet = df_sheet.iloc[:, :4]
+    df_sheet.columns = ["Year", "Month", "Indicator", "Value"]
 
-    # توحيد الأعمدة أول 4 أعمدة فقط
-    df = df.iloc[:, :4]
-    df.columns = ["Year", "Month", "Indicator", "Value"]
-
-    df["Category"] = sheet
-    all_data.append(df)
+    df_sheet["Category"] = sheet
+    all_data.append(df_sheet)
 
 df = pd.concat(all_data, ignore_index=True)
 
 # =========================================
-# ترتيب الشهور
+# MONTH ORDER
 # =========================================
 months_order = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 df["Month"] = pd.Categorical(df["Month"], categories=months_order, ordered=True)
@@ -132,51 +130,85 @@ i2.metric("Performance", performance)
 i3.metric("Change", f"{trend_val:,.2f}")
 
 # =========================================
-# ✅✅✅ YOY COMPARISON (WITH DROPDOWN)
+# ✅✅✅ YOY COMPARISON — GLOBAL DROPDOWN (ACROSS ALL FILES)
 # =========================================
 st.subheader("📊 Year-over-Year (YOY) Comparison")
 
-available_years = sorted(filtered_cat["Year"].unique())
+# ✅ Collect ALL available years from ALL files
+all_years = []
 
-col_y1, col_y2 = st.columns(2)
+for f in files:
+    fp = os.path.join(DATA_DIR, f)
+    x = pd.ExcelFile(fp)
 
-year_1 = col_y1.selectbox("✅ Select First Year", available_years, key="yoy1")
-year_2 = col_y2.selectbox("✅ Select Second Year", available_years, key="yoy2")
+    for sh in x.sheet_names:
+        d = pd.read_excel(fp, sheet_name=sh)
+        y = pd.to_numeric(d.iloc[:, 0], errors="coerce").dropna()
+        all_years.extend(list(y))
 
-if year_1 != year_2:
-    y1_df = filtered_cat[
-        (filtered_cat["Year"] == year_1) &
-        (filtered_cat["Indicator"] == indicator_filter)
-    ].sort_values("Month")
+available_years = sorted(set(int(y) for y in all_years))
 
-    y2_df = filtered_cat[
-        (filtered_cat["Year"] == year_2) &
-        (filtered_cat["Indicator"] == indicator_filter)
-    ].sort_values("Month")
-
-    min_len = min(len(y1_df), len(y2_df))
-
-    yoy_df = pd.DataFrame({
-        "Month": y1_df["Month"].values[:min_len],
-        str(year_1): y1_df["Value"].values[:min_len],
-        str(year_2): y2_df["Value"].values[:min_len],
-    })
-
-    yoy_df["Difference"] = yoy_df[str(year_2)] - yoy_df[str(year_1)]
-
-    st.dataframe(yoy_df, use_container_width=True)
-
-    total_diff = yoy_df["Difference"].sum()
-
-    if total_diff > 0:
-        st.warning(f"⚠️ Increased by {total_diff:,.2f} from {year_1} to {year_2}")
-    elif total_diff < 0:
-        st.success(f"✅ Decreased by {abs(total_diff):,.2f} from {year_1} to {year_2}")
-    else:
-        st.info("ℹ️ No change between the selected years")
-
+if len(available_years) < 2:
+    st.info("ℹ️ Not enough years found across files for YOY comparison.")
 else:
-    st.info("ℹ️ Select two different years to compare")
+    col_y1, col_y2 = st.columns(2)
+
+    year_1 = col_y1.selectbox("✅ Select First Year (Base)", available_years, key="yoy1")
+    year_2 = col_y2.selectbox("✅ Select Second Year (Compare)", available_years, key="yoy2")
+
+    def load_year_data(category, year):
+        result = []
+
+        for f in files:
+            fp = os.path.join(DATA_DIR, f)
+            xls = pd.ExcelFile(fp)
+
+            if category in xls.sheet_names:
+                d = pd.read_excel(fp, sheet_name=category)
+                d = d.iloc[:, :4]
+                d.columns = ["Year", "Month", "Indicator", "Value"]
+
+                d = d[(d["Year"] == year) & (d["Indicator"] == indicator_filter)]
+                if not d.empty:
+                    result.append(d)
+
+        if result:
+            out = pd.concat(result)
+            out["Month"] = pd.Categorical(out["Month"], categories=months_order, ordered=True)
+            return out.sort_values("Month")
+
+        return pd.DataFrame()
+
+    if year_1 != year_2:
+        y1_df = load_year_data(category_filter, year_1)
+        y2_df = load_year_data(category_filter, year_2)
+
+        if y1_df.empty or y2_df.empty:
+            st.warning("⚠️ One of the selected years has no data for this category & indicator.")
+        else:
+            min_len = min(len(y1_df), len(y2_df))
+
+            yoy_df = pd.DataFrame({
+                "Month": y1_df["Month"].values[:min_len],
+                str(year_1): y1_df["Value"].values[:min_len],
+                str(year_2): y2_df["Value"].values[:min_len],
+            })
+
+            yoy_df["Difference"] = yoy_df[str(year_2)] - yoy_df[str(year_1)]
+
+            st.dataframe(yoy_df, use_container_width=True)
+
+            total_diff = yoy_df["Difference"].sum()
+
+            if total_diff > 0:
+                st.warning(f"⚠️ Increased by {total_diff:,.2f} from {year_1} to {year_2}")
+            elif total_diff < 0:
+                st.success(f"✅ Decreased by {abs(total_diff):,.2f} from {year_1} to {year_2}")
+            else:
+                st.info("ℹ️ No change between the selected years")
+
+    else:
+        st.info("ℹ️ Please select two different years")
 
 # =========================================
 # DATA TABLE
