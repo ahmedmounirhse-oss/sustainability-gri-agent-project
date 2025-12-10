@@ -137,8 +137,9 @@ c3.metric("Year Change", f"{trend_val:,.2f}")
 
 
 # =========================================
-# ✅ YEAR-OVER-YEAR (YOY) COMPARISON — DROPDOWN VERSION
+# ✅ YEAR-OVER-YEAR COMPARISON (WITH DROPDOWNS)
 # =========================================
+
 st.subheader("📊 Year-over-Year (YOY) Comparison")
 
 available_years = sorted(filtered_cat["Year"].unique())
@@ -146,16 +147,25 @@ available_years = sorted(filtered_cat["Year"].unique())
 if len(available_years) < 2:
     st.info("ℹ️ Not enough years available for comparison.")
 else:
-    c1, c2 = st.columns(2)
 
-    with c1:
-        year_1 = st.selectbox("Select Base Year", available_years, index=0)
+    col_y1, col_y2 = st.columns(2)
 
-    with c2:
-        year_2 = st.selectbox("Select Comparison Year", available_years, index=len(available_years)-1)
+    with col_y1:
+        year_1 = st.selectbox(
+            "✅ Select First Year (Base Year)",
+            available_years,
+            key="yoy_year_1"
+        )
+
+    with col_y2:
+        year_2 = st.selectbox(
+            "✅ Select Second Year (Comparison Year)",
+            available_years,
+            key="yoy_year_2"
+        )
 
     if year_1 == year_2:
-        st.warning("⚠️ Please select two different years for comparison.")
+        st.warning("⚠️ Please select two DIFFERENT years for comparison.")
     else:
         df_year_1 = filtered_cat[
             (filtered_cat["Year"] == year_1) &
@@ -167,28 +177,36 @@ else:
             (filtered_cat["Indicator"] == indicator_filter)
         ].sort_values("Month")
 
-        yoy_df = pd.DataFrame()
-        yoy_df["Month"] = df_year_1["Month"].values
-        yoy_df[str(year_1)] = df_year_1["Value"].values
-        yoy_df[str(year_2)] = df_year_2["Value"].values
-        yoy_df["YOY Change"] = yoy_df[str(year_2)] - yoy_df[str(year_1)]
+        # تأكيد أن عدد الشهور متساوي
+        min_len = min(len(df_year_1), len(df_year_2))
+
+        yoy_df = pd.DataFrame({
+            "Month": df_year_1["Month"].values[:min_len],
+            str(year_1): df_year_1["Value"].values[:min_len],
+            str(year_2): df_year_2["Value"].values[:min_len]
+        })
+
+        yoy_df["YOY Difference"] = yoy_df[str(year_2)] - yoy_df[str(year_1)]
 
         st.dataframe(yoy_df, use_container_width=True)
 
-        total_change = yoy_df["YOY Change"].sum()
+        # =========================
+        # ✅ YOY INSIGHT
+        # =========================
+        total_change = yoy_df["YOY Difference"].sum()
 
         st.subheader("📌 YOY Insight")
 
         if total_change > 0:
             st.warning(
-                f"⚠️ {indicator_filter} increased by {total_change:,.2f} from {year_1} to {year_2}."
+                f"⚠️ {indicator_filter} total increased by {total_change:,.2f} from {year_1} to {year_2}."
             )
         elif total_change < 0:
             st.success(
-                f"✅ {indicator_filter} decreased by {abs(total_change):,.2f} from {year_1} to {year_2}, indicating improvement."
+                f"✅ {indicator_filter} total decreased by {abs(total_change):,.2f} from {year_1} to {year_2}."
             )
         else:
-            st.info("ℹ️ No significant change detected between the selected years.")
+            st.info("ℹ️ No significant change between the selected years.")
 
 # =========================================
 # TABLE
