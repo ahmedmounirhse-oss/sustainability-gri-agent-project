@@ -135,41 +135,60 @@ c1.metric("Trend", trend_type)
 c2.metric("Performance", performance)
 c3.metric("Year Change", f"{trend_val:,.2f}")
 
+
 # =========================================
-# YEAR-OVER-YEAR COMPARISON (🔥 تمت الإضافة)
+# ✅ YEAR-OVER-YEAR (YOY) COMPARISON — DROPDOWN VERSION
 # =========================================
 st.subheader("📊 Year-over-Year (YOY) Comparison")
 
-prev_year = year_filter - 1
+available_years = sorted(filtered_cat["Year"].unique())
 
-if prev_year in filtered_cat["Year"].unique():
-
-    prev_df = filtered_cat[
-        (filtered_cat["Year"] == prev_year) &
-        (filtered_cat["Indicator"] == indicator_filter)
-    ].sort_values("Month")
-
-    yoy_df = filtered[["Month", "Value"]].copy()
-    yoy_df.rename(columns={"Value": f"{year_filter}"}, inplace=True)
-
-    yoy_df[str(prev_year)] = prev_df["Value"].values if len(prev_df) == len(yoy_df) else None
-    yoy_df["YOY Change"] = yoy_df[f"{year_filter}"] - yoy_df[str(prev_year)]
-
-    st.dataframe(yoy_df, use_container_width=True)
-
-    st.subheader("📌 YOY Insights")
-
-    total_change = yoy_df["YOY Change"].sum()
-
-    if total_change > 0:
-        st.warning(f"⚠️ {indicator_filter} increased by {total_change:,.2f} compared to {prev_year}.")
-    elif total_change < 0:
-        st.success(f"✅ {indicator_filter} decreased by {abs(total_change):,.2f}, showing improvement.")
-    else:
-        st.info("ℹ️ No significant change year-over-year.")
-
+if len(available_years) < 2:
+    st.info("ℹ️ Not enough years available for comparison.")
 else:
-    st.info("ℹ️ YOY comparison is unavailable because previous year does not exist in file.")
+    c1, c2 = st.columns(2)
+
+    with c1:
+        year_1 = st.selectbox("Select Base Year", available_years, index=0)
+
+    with c2:
+        year_2 = st.selectbox("Select Comparison Year", available_years, index=len(available_years)-1)
+
+    if year_1 == year_2:
+        st.warning("⚠️ Please select two different years for comparison.")
+    else:
+        df_year_1 = filtered_cat[
+            (filtered_cat["Year"] == year_1) &
+            (filtered_cat["Indicator"] == indicator_filter)
+        ].sort_values("Month")
+
+        df_year_2 = filtered_cat[
+            (filtered_cat["Year"] == year_2) &
+            (filtered_cat["Indicator"] == indicator_filter)
+        ].sort_values("Month")
+
+        yoy_df = pd.DataFrame()
+        yoy_df["Month"] = df_year_1["Month"].values
+        yoy_df[str(year_1)] = df_year_1["Value"].values
+        yoy_df[str(year_2)] = df_year_2["Value"].values
+        yoy_df["YOY Change"] = yoy_df[str(year_2)] - yoy_df[str(year_1)]
+
+        st.dataframe(yoy_df, use_container_width=True)
+
+        total_change = yoy_df["YOY Change"].sum()
+
+        st.subheader("📌 YOY Insight")
+
+        if total_change > 0:
+            st.warning(
+                f"⚠️ {indicator_filter} increased by {total_change:,.2f} from {year_1} to {year_2}."
+            )
+        elif total_change < 0:
+            st.success(
+                f"✅ {indicator_filter} decreased by {abs(total_change):,.2f} from {year_1} to {year_2}, indicating improvement."
+            )
+        else:
+            st.info("ℹ️ No significant change detected between the selected years.")
 
 # =========================================
 # TABLE
