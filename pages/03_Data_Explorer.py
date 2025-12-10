@@ -3,19 +3,19 @@ import pandas as pd
 import os
 
 # =========================================
-# ✅ PATH
+# PATH
 # =========================================
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data", "Excel")
 
 # =========================================
-# ✅ PAGE CONFIG
+# PAGE CONFIG
 # =========================================
 st.set_page_config(page_title="Monthly Sustainability Data Explorer", layout="wide")
 st.title("📊 Monthly Sustainability Data Explorer")
 
 # =========================================
-# ✅ FILE SELECTION
+# FILE SELECTION
 # =========================================
 files = []
 
@@ -30,7 +30,7 @@ file_name = st.selectbox("📂 Select Monthly File", files)
 file_path = os.path.join(DATA_DIR, file_name)
 
 # =========================================
-# ✅ LOAD ALL SHEETS (Energy, Water, Emissions, Waste)
+# LOAD ALL SHEETS (Energy, Water, Emissions, Waste)
 # =========================================
 xls = pd.ExcelFile(file_path)
 all_data = []
@@ -51,8 +51,12 @@ for sheet in xls.sheet_names:
 
 df = pd.concat(all_data, ignore_index=True)
 
+# ترتيب الشهور
+months_order = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+df["Month"] = pd.Categorical(df["Month"], categories=months_order, ordered=True)
+
 # =========================================
-# ✅ FILTERS
+# FILTERS
 # =========================================
 st.subheader("🎯 Filters")
 
@@ -61,16 +65,13 @@ col1, col2, col3 = st.columns(3)
 with col1:
     category_filter = st.selectbox(
         "Select Category",
-        sorted(df["Category"].astype(str).unique())
+        sorted(df["Category"].unique())
     )
 
 filtered_cat = df[df["Category"] == category_filter]
 
 with col2:
-    year_filter = st.selectbox(
-        "Select Year",
-        sorted(filtered_cat["Year"].unique())
-    )
+    year_filter = st.selectbox("Select Year", sorted(filtered_cat["Year"].unique()))
 
 with col3:
     indicator_filter = st.selectbox(
@@ -83,13 +84,10 @@ filtered = filtered_cat[
     (filtered_cat["Indicator"] == indicator_filter)
 ]
 
-# ترتيب الشهور
-months_order = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-filtered["Month"] = pd.Categorical(filtered["Month"], categories=months_order, ordered=True)
 filtered = filtered.sort_values("Month")
 
 # =========================================
-# ✅ KPI SUMMARY
+# KPI SUMMARY
 # =========================================
 st.subheader("📌 KPI Summary")
 
@@ -109,15 +107,13 @@ cols[3].metric("Min", f"{min_val:,.2f}", min_month)
 cols[4].metric("Total", f"{total_val:,.2f}")
 
 # =========================================
-# ✅ MONTHLY TREND CHART
+# MONTHLY TREND CHART
 # =========================================
 st.subheader(f"📈 Monthly Trend — {category_filter}")
-
-chart_df = filtered.set_index("Month")[["Value"]]
-st.line_chart(chart_df)
+st.line_chart(filtered.set_index("Month")[["Value"]])
 
 # =========================================
-# ✅ KPI INSPECTOR
+# KPI INSPECTOR
 # =========================================
 st.subheader("🧠 KPI Inspector")
 
@@ -137,30 +133,62 @@ else:
 c1, c2, c3 = st.columns(3)
 c1.metric("Trend", trend_type)
 c2.metric("Performance", performance)
-c3.metric("Last Change", f"{trend_val:,.2f}")
+c3.metric("Year Change", f"{trend_val:,.2f}")
 
 # =========================================
-# ✅ DATA TABLE
+# YEAR-OVER-YEAR COMPARISON (🔥 تمت الإضافة)
+# =========================================
+st.subheader("📊 Year-over-Year (YOY) Comparison")
+
+prev_year = year_filter - 1
+
+if prev_year in filtered_cat["Year"].unique():
+
+    prev_df = filtered_cat[
+        (filtered_cat["Year"] == prev_year) &
+        (filtered_cat["Indicator"] == indicator_filter)
+    ].sort_values("Month")
+
+    yoy_df = filtered[["Month", "Value"]].copy()
+    yoy_df.rename(columns={"Value": f"{year_filter}"}, inplace=True)
+
+    yoy_df[str(prev_year)] = prev_df["Value"].values if len(prev_df) == len(yoy_df) else None
+    yoy_df["YOY Change"] = yoy_df[f"{year_filter}"] - yoy_df[str(prev_year)]
+
+    st.dataframe(yoy_df, use_container_width=True)
+
+    st.subheader("📌 YOY Insights")
+
+    total_change = yoy_df["YOY Change"].sum()
+
+    if total_change > 0:
+        st.warning(f"⚠️ {indicator_filter} increased by {total_change:,.2f} compared to {prev_year}.")
+    elif total_change < 0:
+        st.success(f"✅ {indicator_filter} decreased by {abs(total_change):,.2f}, showing improvement.")
+    else:
+        st.info("ℹ️ No significant change year-over-year.")
+
+else:
+    st.info("ℹ️ YOY comparison is unavailable because previous year does not exist in file.")
+
+# =========================================
+# TABLE
 # =========================================
 st.subheader("📅 Monthly Data Table")
 st.dataframe(filtered[["Month", "Value"]], use_container_width=True)
 
 # =========================================
-# ✅ AUTO INSIGHT
+# AUTO INSIGHT
 # =========================================
 st.subheader("💡 Auto Insight")
 
 if trend_type == "Increasing":
     st.warning(
-        f"⚠️ {indicator_filter} shows an increasing trend in {category_filter}. "
-        f"Peak recorded in {max_month}."
+        f"⚠️ {indicator_filter} shows an increasing trend. Peak recorded in {max_month}."
     )
 elif trend_type == "Decreasing":
     st.success(
-        f"✅ {indicator_filter} shows a decreasing trend in {category_filter}, "
-        f"indicating performance improvement."
+        f"✅ {indicator_filter} shows a decreasing trend. Lowest value observed in {min_month}."
     )
 else:
-    st.info(
-        f"ℹ️ {indicator_filter} remains relatively stable across the year."
-    )
+    st.info(f"ℹ️ {indicator_filter} remained stable through the year.")
