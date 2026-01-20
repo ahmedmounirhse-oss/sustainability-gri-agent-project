@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-from src.indicator_status import indicator_status
 
 from src.company_data_loader import (
     list_company_files,
@@ -115,41 +114,36 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1 — DATA & KPIs
 # =========================================
 with tab1:
-   latest = year_cols[-1]
-prev = year_cols[-2] if len(year_cols) > 1 else None
+    st.subheader("📑 Raw Data")
+    st.dataframe(cat_df, use_container_width=True)
 
-for col, (k, v) in zip(cols, kpis.items()):
-    row = cat_df[cat_df[metric_col] == k]
-    if row.empty:
-        continue
+    st.subheader("📌 KPI Smart Cards (YOY)")
 
-    yearly_values = row[year_cols].iloc[0]
-
-    latest_val = normalize_numeric(yearly_values[latest])
-    prev_val = normalize_numeric(yearly_values[prev]) if prev else None
-
-    if latest_val is None or prev_val is None:
-        delta = "N/A"
+    if not year_cols:
+        st.warning("No year columns found")
     else:
-        delta = f"{latest_val - prev_val:+.2f}"
+        cols = st.columns(len(kpis))
+        latest = year_cols[-1]
+        prev = year_cols[-2] if len(year_cols) > 1 else None
 
-    # 🟢 NEW FEATURE
-    status, coverage = indicator_status(yearly_values)
+        for col, (k, v) in zip(cols, kpis.items()):
+            row = cat_df[cat_df[metric_col] == k]
+            if row.empty:
+                continue
 
-    status_icon = {
-        "Reported": "🟢",
-        "Partial": "🟡",
-        "Not Reported": "🔴"
-    }[status]
+            latest_val = normalize_numeric(row.iloc[0][latest])
+            prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
 
-    col.metric(
-        label=f"{k} ({latest}) {status_icon}",
-        value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
-        delta=delta
-    )
+            if latest_val is None or prev_val is None:
+                delta = "N/A"
+            else:
+                delta = f"{latest_val - prev_val:+.2f}"
 
-    col.caption(f"Coverage: {coverage}%")
-
+            col.metric(
+                label=f"{k} ({latest})",
+                value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
+                delta=delta
+            )
 
 # =========================================
 # TAB 2 — ESG SCORE
