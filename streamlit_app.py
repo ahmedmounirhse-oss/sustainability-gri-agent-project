@@ -63,7 +63,7 @@ team_members = [
 "Wasfy Ead Elsaeed Metouly",
 "Mohamed ElSayed Menshawy",
 "Mohamed Salah Abd Elsalam",
-"Mostafa Hussien",
+"Mostafa Ahmed Hussien",
 "Abdelrhman Alaa ElDien Mohamed"
 ]
 
