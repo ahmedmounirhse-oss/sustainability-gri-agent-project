@@ -13,6 +13,12 @@ from src.company_data_loader import (
 from src.company_pdf_exporter import build_company_pdf
 from src.email_sender import send_pdf_via_email
 
+# ================================
+# NEW IMPORTS (STAGE 3 & 4)
+# ================================
+from utils.data_validation import normalize_numeric
+from utils.indicator_status import indicator_status
+
 # =========================================
 # PAGE CONFIG
 # =========================================
@@ -96,7 +102,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # =========================================
-# TAB 1 — DATA & KPIs
+# TAB 1 — DATA & KPIs (UPDATED)
 # =========================================
 with tab1:
     st.subheader("📑 Raw Data")
@@ -113,17 +119,36 @@ with tab1:
         if row.empty:
             continue
 
-        latest_val = float(row[latest])
-        delta = "N/A" if not prev else f"{latest_val - float(row[prev]):+.2f}"
+        latest_val = normalize_numeric(row.iloc[0][latest])
+        prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
+
+        # ===== SAFE DELTA =====
+        if latest_val is None or prev_val is None:
+            delta = "N/A"
+        else:
+            delta = f"{latest_val - prev_val:+.2f}"
+
+        # ===== STATUS & COVERAGE =====
+        status, coverage = indicator_status(
+            pd.to_numeric(row[year_cols].iloc[0], errors="coerce")
+        )
+
+        status_icon = {
+            "Reported": "🟢",
+            "Partial": "🟡",
+            "Not Reported": "🔴"
+        }[status]
 
         col.metric(
-            label=f"{k} ({latest})",
-            value=f"{latest_val:,.2f}",
+            label=f"{k} ({latest}) {status_icon}",
+            value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
             delta=delta
         )
 
+        col.caption(f"Coverage: {coverage}%")
+
 # =========================================
-# TAB 2 — ESG SCORE
+# TAB 2 — ESG SCORE (UNCHANGED)
 # =========================================
 with tab2:
     st.subheader("🌍 Overall ESG Score")
@@ -158,7 +183,7 @@ with tab2:
         cols[i % 3].plotly_chart(fig, use_container_width=True)
 
 # =========================================
-# TAB 3 — TRENDS & FORECAST
+# TAB 3 — TRENDS & FORECAST (SAFE)
 # =========================================
 with tab3:
     for metric in kpis:
@@ -179,6 +204,9 @@ with tab3:
                 continue
 
             values = pd.to_numeric(row[year_cols].iloc[0], errors="coerce").dropna()
+            if len(values) < 2:
+                continue
+
             x = np.array([int(y) for y in year_cols[:len(values)]])
             y = values.values
 
@@ -186,7 +214,7 @@ with tab3:
             st.info(f"{metric} — {next_year}: {model(next_year):.2f}")
 
 # =========================================
-# TAB 4 — REPORTS
+# TAB 4 — REPORTS (UNCHANGED)
 # =========================================
 with tab4:
     if st.button("✅ Generate PDF"):
