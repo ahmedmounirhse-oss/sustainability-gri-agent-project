@@ -103,12 +103,14 @@ metric_col = next((c for c in cat_df.columns if "metric" in c.lower()), None)
 # =========================================
 # TABS
 # =========================================
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Data & KPIs",
     "🌍 ESG Score",
     "📈 Trends & Forecast",
-    "📄 Reports"
+    "📄 Reports",
+    "🏭 Company Comparison"
 ])
+
 
 # =========================================
 # TAB 1 — DATA & KPIs
@@ -244,3 +246,66 @@ with tab4:
             "GRI Report"
         )
         st.success("Email Sent")
+# =========================================
+# TAB 5 — Company Comparison
+# =========================================
+with tab5:
+    st.subheader("🏭 Company Comparison")
+
+    # Select companies to compare
+    compare_files = st.multiselect(
+        "Select companies to compare",
+        files,
+        default=[company_file]
+    )
+
+    if len(compare_files) < 2:
+        st.info("Select at least 2 companies for comparison")
+    else:
+        comparison_rows = []
+
+        for file in compare_files:
+            comp_name = file.replace(".xlsx", "")
+            comp_df = load_company_file(file)
+
+            comp_cat_df = comp_df[comp_df["Category"] == selected_category]
+
+            metric_col_comp = next(
+                (c for c in comp_cat_df.columns if "metric" in c.lower()),
+                None
+            )
+
+            if metric_col_comp is None or comp_cat_df.empty:
+                continue
+
+            year_cols_comp = sorted([c for c in comp_df.columns if str(c).isdigit()])
+            latest_year = year_cols_comp[-1]
+
+            for _, row in comp_cat_df.iterrows():
+                metric = row[metric_col_comp]
+                yearly_values = row[year_cols_comp]
+
+                latest_val = normalize_numeric(row[latest_year])
+                status, coverage = indicator_status(yearly_values)
+
+                comparison_rows.append({
+                    "Company": comp_name,
+                    "Indicator": metric,
+                    "Latest Value": latest_val,
+                    "Status": status,
+                    "Coverage %": coverage
+                })
+
+        if comparison_rows:
+            comp_table = pd.DataFrame(comparison_rows)
+
+            # Optional filtering
+            status_filter = st.multiselect(
+                "Filter by Status",
+                ["Reported", "Partial", "Not Reported"],
+                default=["Reported", "Partial", "Not Reported"]
+            )
+
+            comp_table = comp_table[comp_table["Status"].isin(status_filter)]
+
+            st.dataframe(comp_table, use_container_width=True)
