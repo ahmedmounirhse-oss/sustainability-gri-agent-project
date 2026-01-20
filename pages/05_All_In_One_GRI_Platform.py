@@ -13,11 +13,9 @@ from src.company_data_loader import (
 from src.company_pdf_exporter import build_company_pdf
 from src.email_sender import send_pdf_via_email
 
-# ================================
-# NEW IMPORTS (STAGE 3 & 4)
-# ================================
-from utils.data_validation import normalize_numeric
-from utils.indicator_status import indicator_status
+# ✅ DATA VALIDATION
+from src.data_validation import normalize_numeric
+
 
 # =========================================
 # PAGE CONFIG
@@ -42,12 +40,18 @@ UNIT_MAP = {
 # HELPERS
 # =========================================
 def classify_kpi(value):
+    try:
+        value = float(value)
+    except Exception:
+        return "N/A"
+
     if value <= 30:
         return "Excellent"
     elif value <= 70:
         return "Moderate"
     else:
         return "Risky"
+
 
 def calculate_esg_score(kpis):
     weights = {
@@ -58,10 +62,15 @@ def calculate_esg_score(kpis):
     }
 
     score, used = 0, 0
+
     for k, v in kpis.items():
+        v = normalize_numeric(v)
+        if v is None:
+            continue
+
         for key, w in weights.items():
             if key in k.lower():
-                score += max(0, 100 - float(v)) * w
+                score += max(0, 100 - v) * w
                 used += w
 
     if used == 0:
@@ -102,56 +111,46 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # =========================================
-# TAB 1 — DATA & KPIs (UPDATED)
+# TAB 1 — DATA & KPIs
 # =========================================
 with tab1:
     st.subheader("📑 Raw Data")
     st.dataframe(cat_df, use_container_width=True)
 
     st.subheader("📌 KPI Smart Cards (YOY)")
-    cols = st.columns(len(kpis))
 
-    latest = year_cols[-1]
-    prev = year_cols[-2] if len(year_cols) > 1 else None
+    if not year_cols:
+        st.warning("No year columns found")
+    else:
+        cols = st.columns(len(kpis))
+        latest = year_cols[-1]
+        prev = year_cols[-2] if len(year_cols) > 1 else None
 
-    for col, (k, v) in zip(cols, kpis.items()):
-        row = cat_df[cat_df[metric_col] == k]
-        if row.empty:
-            continue
+        for col, (k, v) in zip(cols, kpis.items()):
+            row = cat_df[cat_df[metric_col] == k]
+            if row.empty:
+                continue
 
-        latest_val = normalize_numeric(row.iloc[0][latest])
-        prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
+            latest_val = normalize_numeric(row.iloc[0][latest])
+            prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
 
-        # ===== SAFE DELTA =====
-        if latest_val is None or prev_val is None:
-            delta = "N/A"
-        else:
-            delta = f"{latest_val - prev_val:+.2f}"
+            if latest_val is None or prev_val is None:
+                delta = "N/A"
+            else:
+                delta = f"{latest_val - prev_val:+.2f}"
 
-        # ===== STATUS & COVERAGE =====
-        status, coverage = indicator_status(
-            pd.to_numeric(row[year_cols].iloc[0], errors="coerce")
-        )
-
-        status_icon = {
-            "Reported": "🟢",
-            "Partial": "🟡",
-            "Not Reported": "🔴"
-        }[status]
-
-        col.metric(
-            label=f"{k} ({latest}) {status_icon}",
-            value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
-            delta=delta
-        )
-
-        col.caption(f"Coverage: {coverage}%")
+            col.metric(
+                label=f"{k} ({latest})",
+                value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
+                delta=delta
+            )
 
 # =========================================
-# TAB 2 — ESG SCORE (UNCHANGED)
+# TAB 2 — ESG SCORE
 # =========================================
 with tab2:
     st.subheader("🌍 Overall ESG Score")
+
     score, status = calculate_esg_score(kpis)
     color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
@@ -162,28 +161,33 @@ with tab2:
         title={"text": f"ESG Score — {status}"},
         gauge={"axis": {"range": [0, 100]}, "bar": {"color": color}}
     ))
+
     st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("📌 KPI Gauges")
     cols = st.columns(3)
 
     for i, (k, v) in enumerate(kpis.items()):
+        val = normalize_numeric(v)
+        if val is None:
+            continue
+
         unit = next((u for w, u in UNIT_MAP.items() if w in k.lower()), "")
-        status = classify_kpi(v)
+        status = classify_kpi(val)
         color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
-            value=float(v),
+            value=val,
             number={"suffix": f" {unit}"},
             title={"text": f"{k} — {status}"},
-            gauge={"axis": {"range": [0, max(100, v * 1.5)]}, "bar": {"color": color}}
+            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
         ))
 
         cols[i % 3].plotly_chart(fig, use_container_width=True)
 
 # =========================================
-# TAB 3 — TRENDS & FORECAST (SAFE)
+# TAB 3 — TRENDS & FORECAST
 # =========================================
 with tab3:
     for metric in kpis:
@@ -195,6 +199,7 @@ with tab3:
         st.line_chart(chart_df)
 
     st.subheader("🔮 Prediction (Next Year)")
+
     if len(year_cols) >= 3:
         next_year = int(year_cols[-1]) + 1
 
@@ -214,7 +219,7 @@ with tab3:
             st.info(f"{metric} — {next_year}: {model(next_year):.2f}")
 
 # =========================================
-# TAB 4 — REPORTS (UNCHANGED)
+# TAB 4 — REPORTS
 # =========================================
 with tab4:
     if st.button("✅ Generate PDF"):
