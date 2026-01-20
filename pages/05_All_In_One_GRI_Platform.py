@@ -115,36 +115,41 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1 — DATA & KPIs
 # =========================================
 with tab1:
-    st.subheader("📑 Raw Data")
-    st.dataframe(cat_df, use_container_width=True)
+   latest = year_cols[-1]
+prev = year_cols[-2] if len(year_cols) > 1 else None
 
-    st.subheader("📌 KPI Smart Cards (YOY)")
+for col, (k, v) in zip(cols, kpis.items()):
+    row = cat_df[cat_df[metric_col] == k]
+    if row.empty:
+        continue
 
-    if not year_cols:
-        st.warning("No year columns found")
+    yearly_values = row[year_cols].iloc[0]
+
+    latest_val = normalize_numeric(yearly_values[latest])
+    prev_val = normalize_numeric(yearly_values[prev]) if prev else None
+
+    if latest_val is None or prev_val is None:
+        delta = "N/A"
     else:
-        cols = st.columns(len(kpis))
-        latest = year_cols[-1]
-        prev = year_cols[-2] if len(year_cols) > 1 else None
+        delta = f"{latest_val - prev_val:+.2f}"
 
-        for col, (k, v) in zip(cols, kpis.items()):
-            row = cat_df[cat_df[metric_col] == k]
-            if row.empty:
-                continue
+    # 🟢 NEW FEATURE
+    status, coverage = indicator_status(yearly_values)
 
-            latest_val = normalize_numeric(row.iloc[0][latest])
-            prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
+    status_icon = {
+        "Reported": "🟢",
+        "Partial": "🟡",
+        "Not Reported": "🔴"
+    }[status]
 
-            if latest_val is None or prev_val is None:
-                delta = "N/A"
-            else:
-                delta = f"{latest_val - prev_val:+.2f}"
+    col.metric(
+        label=f"{k} ({latest}) {status_icon}",
+        value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
+        delta=delta
+    )
 
-            col.metric(
-                label=f"{k} ({latest})",
-                value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
-                delta=delta
-            )
+    col.caption(f"Coverage: {coverage}%")
+
 
 # =========================================
 # TAB 2 — ESG SCORE
