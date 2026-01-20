@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+from src.indicator_status import indicator_status
 
 from src.company_data_loader import (
     list_company_files,

@@ -1,12 +1,6 @@
 import pandas as pd
 
 def indicator_status(values):
-    """
-    Determine reporting status and data coverage for an indicator.
-
-    values: pandas Series of yearly values
-    """
-
     numeric = pd.to_numeric(values, errors="coerce")
 
     total = len(numeric)
