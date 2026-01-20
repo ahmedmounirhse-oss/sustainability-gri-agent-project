@@ -1,5 +1,3 @@
-import pandas as pd
-
 def normalize_numeric(value):
     try:
         return float(value)
