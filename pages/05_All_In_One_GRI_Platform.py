@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 from src.indicator_status import indicator_status
+from src.ai_insight import generate_ai_insight
 
 from src.company_data_loader import (
     list_company_files,
@@ -310,3 +311,38 @@ with tab5:
             comp_table = comp_table[comp_table["Status"].isin(status_filter)]
 
             st.dataframe(comp_table, use_container_width=True)
+st.subheader("🤖 AI Insights")
+
+selected_company_ai = st.selectbox(
+    "Select company for AI insight",
+    compare_files
+)
+
+comp_name = selected_company_ai.replace(".xlsx", "")
+comp_df = load_company_file(selected_company_ai)
+
+analysis = []
+
+for category in comp_df["Category"].dropna().unique():
+    cat_df_comp = comp_df[comp_df["Category"] == category]
+    metric_col_comp = next(
+        (c for c in cat_df_comp.columns if "metric" in c.lower()),
+        None
+    )
+    if metric_col_comp is None:
+        continue
+
+    year_cols_comp = sorted([c for c in comp_df.columns if str(c).isdigit()])
+
+    for _, row in cat_df_comp.iterrows():
+        status, coverage = indicator_status(row[year_cols_comp])
+        analysis.append({
+            "indicator": row[metric_col_comp],
+            "status": status,
+            "coverage": coverage
+        })
+
+insights = generate_ai_insight(comp_name, analysis)
+
+for insight in insights:
+    st.info(insight)
