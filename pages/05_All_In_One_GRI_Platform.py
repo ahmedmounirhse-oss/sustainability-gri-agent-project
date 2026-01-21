@@ -181,28 +181,34 @@ with tab2:
 # TAB 3 — TRENDS & FORECAST
 # =========================================
 with tab3:
+    st.subheader("📈 KPI Trends")
+
     for metric in kpis:
         trend = get_trend_data(df, selected_category, metric)
-        if trend:
-            st.line_chart(pd.DataFrame(trend, index=["Value"]).T)
+        if not trend:
+            continue
 
-    st.subheader("🔮 Prediction (Next Year)")
-    if len(year_cols) >= 3:
-        next_year = int(year_cols[-1]) + 1
-        for metric in kpis:
-            row = cat_df[cat_df[metric_col] == metric]
-            if row.empty:
-                continue
+        chart_df = pd.DataFrame(trend, index=["Value"]).T
 
-            values = pd.to_numeric(row[year_cols].iloc[0], errors="coerce").dropna()
-            if len(values) < 2:
-                continue
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=chart_df.index,
+                y=chart_df["Value"],
+                mode="lines+markers",
+                name=metric
+            )
+        )
 
-            x = np.array([int(y) for y in year_cols[:len(values)]])
-            y = values.values
-            model = np.poly1d(np.polyfit(x, y, 1))
+        fig.update_layout(
+            title=f"{metric} Trend Over Time",
+            xaxis_title="Year",
+            yaxis_title="Value",
+            template="plotly_white"
+        )
 
-            st.info(f"{metric} — {next_year}: {model(next_year):.2f}")
+        st.plotly_chart(fig, use_container_width=True)
+
 
 # =========================================
 # TAB 4 — REPORTS & EMAIL
