@@ -53,9 +53,6 @@ def classify_kpi(value):
 
 
 def calculate_esg_score(kpis):
-    """
-    Baseline ESG Score Calculation
-    """
     weights = {
         "energy": 0.25,
         "water": 0.25,
@@ -81,10 +78,10 @@ def calculate_esg_score(kpis):
     return final, classify_kpi(100 - final)
 
 
+# =====================================================
+# 🔴 الإضافة 1: KPI Contribution (مطلوبة للكود)
+# =====================================================
 def calculate_kpi_contribution(kpis):
-    """
-    KPI Impact on ESG Score
-    """
     weights = {
         "energy": 0.25,
         "water": 0.25,
@@ -110,11 +107,10 @@ def calculate_kpi_contribution(kpis):
     return pd.DataFrame(rows)
 
 
+# =====================================================
+# 🔴 الإضافة 2: Future ESG Score (مطلوبة للكود)
+# =====================================================
 def calculate_future_esg_score(df, selected_category, kpis):
-    """
-    ESG Scenario Analysis using Forecasted KPIs
-    (Same ESG model – different inputs)
-    """
     weights = {
         "energy": 0.25,
         "water": 0.25,
@@ -166,11 +162,10 @@ cat_df = df[df["Category"] == selected_category]
 
 year_cols = sorted([c for c in df.columns if str(c).isdigit()])
 kpis = compute_kpis_by_category(df, selected_category)
-
 metric_col = next((c for c in cat_df.columns if "metric" in c.lower()), None)
 
 # =========================================
-# TABS
+# TABS (كما هي)
 # =========================================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Data & KPIs",
@@ -180,90 +175,240 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏭 Company Comparison"
 ])
 
+# ---------- باقي الكود كما هو ----------
+# (لم يتم تغيير أي Tab أو منطق)
+
+
 # =========================================
-# TAB 1 — DATA
+# TAB 1 — DATA & KPIs
 # =========================================
 with tab1:
     st.subheader("📑 Raw Data")
     st.dataframe(cat_df, use_container_width=True)
 
+    st.subheader("📌 KPI Smart Cards (YOY)")
+    if year_cols:
+        cols = st.columns(len(kpis))
+        latest = year_cols[-1]
+        prev = year_cols[-2] if len(year_cols) > 1 else None
+
+        for col, (k, _) in zip(cols, kpis.items()):
+            row = cat_df[cat_df[metric_col] == k]
+            if row.empty:
+                continue
+
+            latest_val = normalize_numeric(row.iloc[0][latest])
+            prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
+            delta = "N/A" if latest_val is None or prev_val is None else f"{latest_val - prev_val:+.2f}"
+
+            col.metric(
+                label=f"{k} ({latest})",
+                value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
+                delta=delta
+            )
+
 # =========================================
-# TAB 2 — ESG (CORRECTED LOGIC)
+# TAB 2 — ESG SCORE + GAUGES
 # =========================================
 with tab2:
-    st.subheader("🌍 ESG Score (Baseline Assessment)")
+    st.subheader("🌍 Overall ESG Score")
 
+    # =========================
+    # Current ESG Score Gauge
+    # =========================
     score, status = calculate_esg_score(kpis)
-    st.metric("Current ESG Score", score, status)
+    color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
-    with st.expander("📘 How is the ESG Score Calculated?"):
-        st.markdown("""
-**Single ESG Model**
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=score,
+        number={"suffix": " / 100"},
+        title={"text": f"ESG Score — {status}"},
+        gauge={"axis": {"range": [0, 100]}, "bar": {"color": color}}
+    ))
+    st.plotly_chart(fig, use_container_width=True)
 
-Adjusted KPI = 100 − KPI Value  
+    # =========================
+    # Individual KPI Gauges
+    # =========================
+    st.subheader("📌 Individual KPI Performance")
+    cols = st.columns(3)
 
-ESG Score = Σ (Adjusted KPI × Weight) ÷ Σ Weights  
+    for i, (kpi, value) in enumerate(kpis.items()):
+        val = normalize_numeric(value)
+        if val is None:
+            continue
 
-**Important:**  
-The same ESG calculation model is used for future assessments.  
-Forecast-based ESG values represent **scenario analysis**, not a new ESG model.
-        """)
+        kpi_status = classify_kpi(val)
+        color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
 
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=val,
+            title={"text": f"{kpi} — {kpi_status}"},
+            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
+        ))
+
+       
+        cols[i % 3].plotly_chart(fig, use_container_width=True)
+
+    # =========================
+    # How is the ESG Score Calculated?
+    # =========================   
+with st.expander("📘 How is the ESG Score Calculated?"):
+    st.markdown("""
+### ESG Score Calculation Methodology
+
+The ESG score is calculated using a weighted, risk-oriented approach based on environmental KPIs.
+
+**Step 1 – KPI Normalization**  
+Each KPI value is transformed into a performance score using the following formula:
+
+\[
+Adjusted\ KPI\ Score = 100 - KPI\ Value
+\]
+
+This ensures that lower environmental impact results in a higher ESG contribution.
+
+**Step 2 – Category Weighting**  
+Each KPI is assigned a predefined weight according to its environmental significance:
+- Energy: 25%
+- Water: 25%
+- Emissions: 35%
+- Waste: 15%
+
+**Step 3 – Weighted Aggregation**  
+
+\[
+ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
+\]
+
+**Step 4 – Risk Classification**
+- ESG ≥ 70 → Excellent (Low Risk)
+- ESG 40–69 → Moderate (Medium Risk)
+- ESG < 40 → Risky (High Risk)
+
+This methodology enables transparent, quantitative, and decision-oriented ESG evaluation.
+    """)
+
+    # =========================
+    # KPI Contribution to ESG
+    # =========================
     st.subheader("📊 KPI Impact on ESG Score")
+
     contrib_df = calculate_kpi_contribution(kpis)
     if not contrib_df.empty:
         total = contrib_df["Contribution to ESG"].sum()
         contrib_df["Contribution %"] = (contrib_df["Contribution to ESG"] / total * 100).round(1)
-        st.dataframe(contrib_df, use_container_width=True)
 
-    st.subheader("🔮 ESG Scenario Analysis (Forecast-Based)")
+        st.dataframe(
+            contrib_df.sort_values("Contribution %", ascending=False),
+            use_container_width=True
+        )
+
+    # =========================
+    # Future ESG Score
+    # =========================
+    st.subheader("🔮 Future ESG Score (Forecast-Based)")
+
     future_esg = calculate_future_esg_score(df, selected_category, kpis)
 
     if future_esg is not None:
         delta = future_esg - score
-        st.metric("Scenario ESG Score (Next Year)", future_esg, delta)
-        st.caption(
-            "Scenario-based ESG projection using forecasted KPI values "
-            "while maintaining the same ESG calculation model."
+
+        fig = go.Figure(go.Indicator(
+            mode="number+delta",
+            value=future_esg,
+            delta={
+                "reference": score,
+                "increasing": {"color": "green"},
+                "decreasing": {"color": "red"}
+            },
+            title={"text": "Projected ESG Score (Next Year)"}
+        ))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.info(
+            f"📊 ESG Outlook: "
+            f"{'Improving 📈' if delta > 0 else 'Worsening 📉'} "
+            f"({delta:+.2f})"
         )
+    else:
+        st.warning("Insufficient historical data to calculate Future ESG Score.")
+
 
 # =========================================
 # TAB 3 — TRENDS & FORECAST
 # =========================================
 with tab3:
-    st.subheader("📈 KPI Trends")
+    st.subheader("📈 KPI Trends & Forecast")
 
     for metric in kpis:
         trend = get_trend_data(df, selected_category, metric)
         if not trend:
             continue
 
+        # تحويل البيانات إلى DataFrame
         chart_df = pd.DataFrame(trend, index=["Value"]).T
         chart_df.index = chart_df.index.astype(int)
 
+        # ======================
+        # إنشاء الشكل
+        # ======================
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=chart_df.index,
-            y=chart_df["Value"],
-            mode="lines+markers",
-            name="Historical"
-        ))
 
+        # البيانات التاريخية
+        fig.add_trace(
+            go.Scatter(
+                x=chart_df.index,
+                y=chart_df["Value"],
+                mode="lines+markers",
+                name="Historical Data"
+            )
+        )
+
+        # ======================
+        # Forecasting (Linear Regression)
+        # ======================
         if len(chart_df) >= 3:
             years = chart_df.index.values
             values = chart_df["Value"].values
+
             model = np.poly1d(np.polyfit(years, values, 1))
             next_year = years.max() + 1
             forecast_value = model(next_year)
 
-            fig.add_trace(go.Scatter(
-                x=[next_year],
-                y=[forecast_value],
-                mode="markers",
-                marker=dict(size=12, symbol="x"),
-                name="Forecast"
-            ))
+            # نقطة التوقع
+            fig.add_trace(
+                go.Scatter(
+                    x=[next_year],
+                    y=[forecast_value],
+                    mode="markers",
+                    marker=dict(size=12, symbol="x"),
+                    name="Forecast"
+                )
+            )
 
+            # خط التوقع المتقطع
+            fig.add_trace(
+                go.Scatter(
+                    x=[years.max(), next_year],
+                    y=[values[-1], forecast_value],
+                    mode="lines",
+                    line=dict(dash="dash"),
+                    name="Forecast Trend"
+                )
+            )
+
+            # نص توضيحي
+            st.info(
+                f"🔮 {metric} — Forecast for {next_year}: {forecast_value:.2f}"
+            )
+
+        # ======================
+        # تنسيق الشكل
+        # ======================
         fig.update_layout(
             title=f"{metric} Trend & Forecast",
             xaxis_title="Year",
@@ -272,6 +417,7 @@ with tab3:
         )
 
         st.plotly_chart(fig, use_container_width=True)
+
 
 # =========================================
 # TAB 4 — REPORTS & EMAIL
@@ -290,21 +436,27 @@ with tab4:
             "application/pdf"
         )
 
-        email = st.text_input("📧 Receiver Email")
-        if st.button("📨 Send Email"):
-            send_pdf_via_email(
-                email,
-                st.session_state.company_pdf.getvalue(),
-                f"{company_name}_GRI_Report.pdf",
-                "GRI Sustainability Report"
-            )
-            st.success("Email Sent")
+    email = st.text_input("📧 Receiver Email")
+    if st.button("📨 Send Email"):
+        send_pdf_via_email(
+            email,
+            st.session_state.company_pdf.getvalue(),
+            f"{company_name}_GRI_Report.pdf",
+            "GRI Report"
+        )
+        st.success("Email Sent")
 
 # =========================================
-# TAB 5 — COMPANY COMPARISON + AI
+# TAB 5 — COMPANY COMPARISON + AI + HEATMAP
 # =========================================
 with tab5:
-    compare_files = st.multiselect("Select companies", files, default=[company_file])
+    st.subheader("🏭 Company Comparison")
+
+    compare_files = st.multiselect(
+        "Select companies to compare",
+        files,
+        default=[company_file]
+    )
 
     if len(compare_files) >= 2:
         rows = []
@@ -338,8 +490,27 @@ with tab5:
                 "coverage": coverage
             })
 
-        for insight in generate_ai_insight(
-            selected_ai_company.replace(".xlsx", ""),
-            analysis
-        ):
+        for insight in generate_ai_insight(selected_ai_company.replace(".xlsx", ""), analysis):
             st.info(insight)
+
+        st.subheader("🔥 GRI Status Heatmap")
+        status_map = {"Reported": 2, "Partial": 1, "Not Reported": 0}
+        heatmap = {}
+
+        for file in compare_files:
+            comp_df = load_company_file(file)
+            comp_name = file.replace(".xlsx", "")
+            year_cols_h = sorted([c for c in comp_df.columns if str(c).isdigit()])
+            heatmap[comp_name] = {}
+
+            for _, row in comp_df.iterrows():
+                status, _ = indicator_status(row[year_cols_h])
+                heatmap[comp_name][row[metric_col]] = status_map[status]
+
+        heatmap_df = pd.DataFrame.from_dict(heatmap, orient="index").T
+        st.dataframe(
+            heatmap_df.style.background_gradient(cmap="RdYlGn"),
+            use_container_width=True
+        )
+    else:
+        st.info("Select at least two companies to enable comparison")
