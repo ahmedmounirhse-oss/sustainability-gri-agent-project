@@ -77,6 +77,73 @@ def calculate_esg_score(kpis):
     final = round(score / used, 2)
     return final, classify_kpi(100 - final)
 
+
+# =====================================================
+# 🔴 الإضافة 1: KPI Contribution (مطلوبة للكود)
+# =====================================================
+def calculate_kpi_contribution(kpis):
+    weights = {
+        "energy": 0.25,
+        "water": 0.25,
+        "emission": 0.35,
+        "waste": 0.15
+    }
+
+    rows = []
+    for kpi, value in kpis.items():
+        val = normalize_numeric(value)
+        if val is None:
+            continue
+
+        for key, weight in weights.items():
+            if key in kpi.lower():
+                rows.append({
+                    "KPI": kpi,
+                    "Value": round(val, 2),
+                    "Weight": weight,
+                    "Contribution to ESG": round(max(0, 100 - val) * weight, 2)
+                })
+
+    return pd.DataFrame(rows)
+
+
+# =====================================================
+# 🔴 الإضافة 2: Future ESG Score (مطلوبة للكود)
+# =====================================================
+def calculate_future_esg_score(df, selected_category, kpis):
+    weights = {
+        "energy": 0.25,
+        "water": 0.25,
+        "emission": 0.35,
+        "waste": 0.15
+    }
+
+    score, used = 0, 0
+
+    for kpi in kpis:
+        trend = get_trend_data(df, selected_category, kpi)
+        if not trend or len(trend) < 3:
+            continue
+
+        chart_df = pd.DataFrame(trend, index=["Value"]).T
+        chart_df.index = chart_df.index.astype(int)
+
+        years = chart_df.index.values
+        values = chart_df["Value"].values
+
+        model = np.poly1d(np.polyfit(years, values, 1))
+        forecast_value = model(years.max() + 1)
+
+        for key, weight in weights.items():
+            if key in kpi.lower():
+                score += max(0, 100 - forecast_value) * weight
+                used += weight
+
+    if used == 0:
+        return None
+
+    return round(score / used, 2)
+
 # =========================================
 # COMPANY SELECTION
 # =========================================
@@ -95,11 +162,10 @@ cat_df = df[df["Category"] == selected_category]
 
 year_cols = sorted([c for c in df.columns if str(c).isdigit()])
 kpis = compute_kpis_by_category(df, selected_category)
-
 metric_col = next((c for c in cat_df.columns if "metric" in c.lower()), None)
 
 # =========================================
-# TABS
+# TABS (كما هي)
 # =========================================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Data & KPIs",
@@ -108,6 +174,10 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📄 Reports",
     "🏭 Company Comparison"
 ])
+
+# ---------- باقي الكود كما هو ----------
+# (لم يتم تغيير أي Tab أو منطق)
+
 
 # =========================================
 # TAB 1 — DATA & KPIs
