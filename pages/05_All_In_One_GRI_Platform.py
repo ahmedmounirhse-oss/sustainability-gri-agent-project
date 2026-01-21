@@ -155,27 +155,41 @@ with tab2:
     ))
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📌 KPI Gauges")
-    cols = st.columns(3)
+    # =========================
+    # ESG Calculation Method
+    # =========================
+    with st.expander("📘 How is the ESG Score Calculated?"):
+        st.markdown("""
+**Step 1: KPI Normalization**  
+Each environmental KPI is converted into a standardized score to ensure comparability across different units and scales.
 
-    for i, (k, v) in enumerate(kpis.items()):
-        val = normalize_numeric(v)
-        if val is None:
-            continue
+**Step 2: Risk-Oriented Evaluation**  
+KPIs are interpreted based on predefined performance thresholds and categorized into:
+- Excellent (Low Risk)  
+- Moderate (Medium Risk)  
+- Risky (High Risk)
 
-        unit = next((u for w, u in UNIT_MAP.items() if w in k.lower()), "")
-        status = classify_kpi(val)
-        color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
+**Step 3: Category Weighting**  
+KPIs are grouped according to major GRI environmental categories, each assigned a relative weight reflecting its sustainability impact:
+- Energy  
+- Water  
+- Emissions  
+- Waste  
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=val,
-            number={"suffix": f" {unit}"},
-            title={"text": f"{k} — {status}"},
-            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
-        ))
+**Step 4: ESG Score Aggregation**  
+The final ESG score is calculated as a weighted average of all normalized KPIs:
 
-        cols[i % 3].plotly_chart(fig, use_container_width=True)
+\[
+ESG \; Score = \frac{\sum (KPI_{score} \times Category_{weight})}{\sum Category_{weights}}
+\]
+
+**Step 5: Final Interpretation**  
+The overall ESG score is mapped to qualitative performance levels to support managerial decision-making:
+- ESG ≥ 70 → Excellent  
+- ESG between 40–69 → Moderate  
+- ESG < 40 → Risky
+        """)
+
 
 # =========================================
 # TAB 3 — TRENDS & FORECAST
