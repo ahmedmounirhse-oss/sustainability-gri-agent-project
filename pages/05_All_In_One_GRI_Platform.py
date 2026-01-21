@@ -3,19 +3,18 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 
-from src.indicator_status import indicator_status
-from src.ai_insight import generate_ai_insight
-from src.data_validation import normalize_numeric
-
 from src.company_data_loader import (
     list_company_files,
     load_company_file,
     compute_kpis_by_category,
     get_trend_data
 )
-
 from src.company_pdf_exporter import build_company_pdf
 from src.email_sender import send_pdf_via_email
+
+from src.data_validation import normalize_numeric
+from src.indicator_status import indicator_status
+from src.ai_insight import generate_ai_insight
 
 
 # =========================================
@@ -63,7 +62,6 @@ def calculate_esg_score(kpis):
     }
 
     score, used = 0, 0
-
     for k, v in kpis.items():
         v = normalize_numeric(v)
         if v is None:
@@ -144,9 +142,11 @@ with tab1:
             )
 
 # =========================================
-# TAB 2 — ESG SCORE
+# TAB 2 — ESG SCORE + GAUGES
 # =========================================
 with tab2:
+    st.subheader("🌍 Overall ESG Score")
+
     score, status = calculate_esg_score(kpis)
     color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
@@ -159,6 +159,28 @@ with tab2:
     ))
     st.plotly_chart(fig, use_container_width=True)
 
+    st.subheader("📌 KPI Gauges")
+    cols = st.columns(3)
+
+    for i, (k, v) in enumerate(kpis.items()):
+        val = normalize_numeric(v)
+        if val is None:
+            continue
+
+        unit = next((u for w, u in UNIT_MAP.items() if w in k.lower()), "")
+        status = classify_kpi(val)
+        color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
+
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=val,
+            number={"suffix": f" {unit}"},
+            title={"text": f"{k} — {status}"},
+            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
+        ))
+
+        cols[i % 3].plotly_chart(fig, use_container_width=True)
+
 # =========================================
 # TAB 3 — TRENDS & FORECAST
 # =========================================
@@ -168,14 +190,50 @@ with tab3:
         if trend:
             st.line_chart(pd.DataFrame(trend, index=["Value"]).T)
 
+    st.subheader("🔮 Prediction (Next Year)")
+    if len(year_cols) >= 3:
+        next_year = int(year_cols[-1]) + 1
+        for metric in kpis:
+            row = cat_df[cat_df[metric_col] == metric]
+            if row.empty:
+                continue
+
+            values = pd.to_numeric(row[year_cols].iloc[0], errors="coerce").dropna()
+            if len(values) < 2:
+                continue
+
+            x = np.array([int(y) for y in year_cols[:len(values)]])
+            y = values.values
+            model = np.poly1d(np.polyfit(x, y, 1))
+
+            st.info(f"{metric} — {next_year}: {model(next_year):.2f}")
+
 # =========================================
-# TAB 4 — REPORTS
+# TAB 4 — REPORTS & EMAIL
 # =========================================
 with tab4:
     if st.button("✅ Generate PDF"):
         pdf = build_company_pdf(company_name, df, kpis, selected_category)
         st.session_state.company_pdf = pdf
         st.success("PDF Generated")
+
+    if "company_pdf" in st.session_state:
+        st.download_button(
+            "⬇ Download PDF",
+            st.session_state.company_pdf.getvalue(),
+            f"{company_name}_GRI_Report.pdf",
+            "application/pdf"
+        )
+
+    email = st.text_input("📧 Receiver Email")
+    if st.button("📨 Send Email"):
+        send_pdf_via_email(
+            email,
+            st.session_state.company_pdf.getvalue(),
+            f"{company_name}_GRI_Report.pdf",
+            "GRI Report"
+        )
+        st.success("Email Sent")
 
 # =========================================
 # TAB 5 — COMPANY COMPARISON + AI + HEATMAP
@@ -189,50 +247,31 @@ with tab5:
         default=[company_file]
     )
 
-    if len(compare_files) < 2:
-        st.info("Select at least 2 companies for comparison")
-    else:
-        # ===============================
-        # TABLE COMPARISON
-        # ===============================
+    if len(compare_files) >= 2:
         rows = []
-
         for file in compare_files:
-            comp_name = file.replace(".xlsx", "")
             comp_df = load_company_file(file)
+            comp_name = file.replace(".xlsx", "")
+            year_cols_c = sorted([c for c in comp_df.columns if str(c).isdigit()])
 
-            comp_cat_df = comp_df[comp_df["Category"] == selected_category]
-            metric_col_comp = next((c for c in comp_cat_df.columns if "metric" in c.lower()), None)
-            year_cols_comp = sorted([c for c in comp_df.columns if str(c).isdigit()])
-
-            for _, row in comp_cat_df.iterrows():
-                status, coverage = indicator_status(row[year_cols_comp])
+            for _, row in comp_df.iterrows():
+                status, coverage = indicator_status(row[year_cols_c])
                 rows.append({
                     "Company": comp_name,
-                    "Indicator": row[metric_col_comp],
+                    "Indicator": row[metric_col],
                     "Status": status,
                     "Coverage %": coverage
                 })
 
-        comp_df_view = pd.DataFrame(rows)
-        st.dataframe(comp_df_view, use_container_width=True)
+        comp_view = pd.DataFrame(rows)
+        st.dataframe(comp_view, use_container_width=True)
 
-        # ===============================
-        # AI INSIGHT
-        # ===============================
         st.subheader("🤖 AI Insights")
-
-        selected_ai_company = st.selectbox(
-            "Select company for AI insight",
-            compare_files
-        )
-
-        ai_name = selected_ai_company.replace(".xlsx", "")
+        selected_ai_company = st.selectbox("Select company", compare_files)
         ai_df = load_company_file(selected_ai_company)
-
-        analysis = []
         year_cols_ai = sorted([c for c in ai_df.columns if str(c).isdigit()])
 
+        analysis = []
         for _, row in ai_df.iterrows():
             status, coverage = indicator_status(row[year_cols_ai])
             analysis.append({
@@ -241,32 +280,27 @@ with tab5:
                 "coverage": coverage
             })
 
-        insights = generate_ai_insight(ai_name, analysis)
-        for i in insights:
-            st.info(i)
+        for insight in generate_ai_insight(selected_ai_company.replace(".xlsx", ""), analysis):
+            st.info(insight)
 
-        # ===============================
-        # HEATMAP
-        # ===============================
         st.subheader("🔥 GRI Status Heatmap")
-
         status_map = {"Reported": 2, "Partial": 1, "Not Reported": 0}
         heatmap = {}
 
         for file in compare_files:
-            comp_name = file.replace(".xlsx", "")
             comp_df = load_company_file(file)
-            heatmap[comp_name] = {}
-
+            comp_name = file.replace(".xlsx", "")
             year_cols_h = sorted([c for c in comp_df.columns if str(c).isdigit()])
+            heatmap[comp_name] = {}
 
             for _, row in comp_df.iterrows():
                 status, _ = indicator_status(row[year_cols_h])
                 heatmap[comp_name][row[metric_col]] = status_map[status]
 
         heatmap_df = pd.DataFrame.from_dict(heatmap, orient="index").T
-
         st.dataframe(
             heatmap_df.style.background_gradient(cmap="RdYlGn"),
             use_container_width=True
         )
+    else:
+        st.info("Select at least two companies to enable comparison")
