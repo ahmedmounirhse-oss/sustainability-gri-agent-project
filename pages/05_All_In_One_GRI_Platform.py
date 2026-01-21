@@ -3,7 +3,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 
-from src.executive_summary import generate_executive_summary
+from executive_summary import generate_executive_summary
+
 from src.gri_readiness import gri_readiness_score
 from src.company_data_loader import (
     list_company_files,
