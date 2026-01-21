@@ -143,6 +143,9 @@ with tab1:
 with tab2:
     st.subheader("🌍 Overall ESG Score")
 
+    # =========================
+    # Current ESG Score Gauge
+    # =========================
     score, status = calculate_esg_score(kpis)
     color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
@@ -156,39 +159,73 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
     # =========================
-    # ESG Calculation Method
+    # Individual KPI Gauges
     # =========================
-    with st.expander("📘 How is the ESG Score Calculated?"):
-        st.markdown("""
-**Step 1: KPI Normalization**  
-Each environmental KPI is converted into a standardized score to ensure comparability across different units and scales.
+    st.subheader("📌 Individual KPI Performance")
+    cols = st.columns(3)
 
-**Step 2: Risk-Oriented Evaluation**  
-KPIs are interpreted based on predefined performance thresholds and categorized into:
-- Excellent (Low Risk)  
-- Moderate (Medium Risk)  
-- Risky (High Risk)
+    for i, (kpi, value) in enumerate(kpis.items()):
+        val = normalize_numeric(value)
+        if val is None:
+            continue
 
-**Step 3: Category Weighting**  
-KPIs are grouped according to major GRI environmental categories, each assigned a relative weight reflecting its sustainability impact:
-- Energy  
-- Water  
-- Emissions  
-- Waste  
+        kpi_status = classify_kpi(val)
+        color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
 
-**Step 4: ESG Score Aggregation**  
-The final ESG score is calculated as a weighted average of all normalized KPIs:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=val,
+            title={"text": f"{kpi} — {kpi_status}"},
+            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
+        ))
 
-\[
-ESG \; Score = \frac{\sum (KPI_{score} \times Category_{weight})}{\sum Category_{weights}}
-\]
+        cols[i % 3].plotly_chart(fig, use_container_width=True)
 
-**Step 5: Final Interpretation**  
-The overall ESG score is mapped to qualitative performance levels to support managerial decision-making:
-- ESG ≥ 70 → Excellent  
-- ESG between 40–69 → Moderate  
-- ESG < 40 → Risky
-        """)
+    # =========================
+    # KPI Contribution to ESG
+    # =========================
+    st.subheader("📊 KPI Impact on ESG Score")
+
+    contrib_df = calculate_kpi_contribution(kpis)
+    if not contrib_df.empty:
+        total = contrib_df["Contribution to ESG"].sum()
+        contrib_df["Contribution %"] = (contrib_df["Contribution to ESG"] / total * 100).round(1)
+
+        st.dataframe(
+            contrib_df.sort_values("Contribution %", ascending=False),
+            use_container_width=True
+        )
+
+    # =========================
+    # Future ESG Score
+    # =========================
+    st.subheader("🔮 Future ESG Score (Forecast-Based)")
+
+    future_esg = calculate_future_esg_score(df, selected_category, kpis)
+
+    if future_esg is not None:
+        delta = future_esg - score
+
+        fig = go.Figure(go.Indicator(
+            mode="number+delta",
+            value=future_esg,
+            delta={
+                "reference": score,
+                "increasing": {"color": "green"},
+                "decreasing": {"color": "red"}
+            },
+            title={"text": "Projected ESG Score (Next Year)"}
+        ))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.info(
+            f"📊 ESG Outlook: "
+            f"{'Improving 📈' if delta > 0 else 'Worsening 📉'} "
+            f"({delta:+.2f})"
+        )
+    else:
+        st.warning("Insufficient historical data to calculate Future ESG Score.")
 
 
 # =========================================
