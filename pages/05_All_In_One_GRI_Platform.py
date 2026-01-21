@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-import streamlit as st
-st.error("🔥 THIS FILE IS RUNNING — TAB6 SHOULD EXIST")
 
 from src.executive_summary import generate_executive_summary
 from src.gri_readiness import gri_readiness_score
