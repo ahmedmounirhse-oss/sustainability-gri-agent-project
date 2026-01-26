@@ -3,6 +3,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 
+def safe_subtract(a, b):
+    if a is None or b is None:
+        return None
+    return a - b
+
 from src.company_data_loader import (
     list_company_files,
     load_company_file,
