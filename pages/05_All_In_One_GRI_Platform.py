@@ -77,6 +77,55 @@ def calculate_esg_score(kpis):
     final = round(score / used, 2)
     return final, classify_kpi(100 - final)
 
+def calculate_future_esg_score(df, selected_category, kpis):
+    ...
+    return round(score / used, 2)
+
+# =========================================
+# GRI KNOWLEDGE BASE (STATIC)
+# =========================================
+GRI_KNOWLEDGE = {
+    "energy": {
+        "standard": "GRI 302 – Energy",
+        "description": (
+            "GRI 302 focuses on energy consumption, efficiency, and reduction initiatives. "
+            "High energy intensity indicates poor efficiency and increased environmental impact."
+        ),
+        "recommendation": (
+            "Organizations should prioritize energy efficiency programs, renewable energy adoption, "
+            "and energy intensity reduction targets."
+        )
+    },
+    "water": {
+        "standard": "GRI 303 – Water and Effluents",
+        "description": (
+            "GRI 303 addresses water withdrawal, consumption, and water-related impacts. "
+            "High water usage may indicate operational inefficiencies or sustainability risks."
+        ),
+        "recommendation": (
+            "Water efficiency measures, recycling, and monitoring water-stressed areas are recommended."
+        )
+    },
+    "emission": {
+        "standard": "GRI 305 – Emissions",
+        "description": (
+            "GRI 305 covers greenhouse gas emissions and reduction strategies. "
+            "High emissions represent significant climate-related risk."
+        ),
+        "recommendation": (
+            "Emission reduction strategies, energy transition, and carbon management programs are required."
+        )
+    },
+    "waste": {
+        "standard": "GRI 306 – Waste",
+        "description": (
+            "GRI 306 focuses on waste generation, management, and disposal methods."
+        ),
+        "recommendation": (
+            "Waste minimization, recycling, and circular economy practices are recommended."
+        )
+    }
+}
 
 # =====================================================
 # 🔴 الإضافة 1: KPI Contribution (مطلوبة للكود)
@@ -547,14 +596,42 @@ with tab6:
     def ai_chat_response(question, ctx):
         q = question.lower()
 
+        # ---- GRI Explanation ----
+        if "gri" in q or "standard" in q:
+            for key, info in GRI_KNOWLEDGE.items():
+                if key in q:
+                    return (
+                        f"{info['standard']}\n\n"
+                        f"{info['description']}\n\n"
+                        f"Recommended actions:\n{info['recommendation']}"
+                    )
+            return (
+                "GRI standards include:\n"
+                "- GRI 302: Energy\n"
+                "- GRI 303: Water\n"
+                "- GRI 305: Emissions\n"
+                "- GRI 306: Waste\n"
+                "You can ask about any specific standard."
+            )
+
+        # ---- KPI ↔ GRI Linking ----
+        if "why" in q or "related" in q:
+            for key, info in GRI_KNOWLEDGE.items():
+                if key in q:
+                    return (
+                        f"This KPI is directly related to {info['standard']}.\n\n"
+                        f"{info['description']}"
+                    )
+
+        # ---- ESG & Forecast ----
         if "future" in q and "esg" in q:
             if ctx["future_esg"] is None:
-                return "Insufficient historical data to project a future ESG scenario."
+                return "Insufficient data to project future ESG."
             delta = ctx["future_esg"] - ctx["esg_score"]
             trend = "improving" if delta > 0 else "deteriorating"
             return (
                 f"The projected ESG score is {ctx['future_esg']} "
-                f"({trend} compared to the current score of {ctx['esg_score']})."
+                f"({trend} compared to the current score)."
             )
 
         if "esg" in q:
@@ -563,23 +640,7 @@ with tab6:
                 f"{ctx['esg_score']} ({ctx['esg_status']} performance)."
             )
 
-        if "risk" in q or "priority" in q:
-            if not ctx["top_kpis"]:
-                return "No high-impact KPIs could be identified."
-            return (
-                "The highest priority KPIs affecting ESG performance are: "
-                + ", ".join(ctx["top_kpis"])
-            )
-
         return (
-            "You can ask about ESG score interpretation, sustainability risks, "
-            "KPI priorities, or future ESG scenarios."
-        )
-
-    # --- Chat UI ---
-    user_question = st.text_input("💬 Ask the Sustainability AI Assistant")
-
-    if user_question:
-        st.chat_message("assistant").write(
-            ai_chat_response(user_question, context)
+            "I can explain company ESG performance, KPI risks, future scenarios, "
+            "and GRI standards. Try asking about emissions, water, energy, or GRI 305."
         )
