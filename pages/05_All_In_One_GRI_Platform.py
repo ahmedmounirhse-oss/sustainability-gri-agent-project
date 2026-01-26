@@ -369,29 +369,29 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 
     future_esg = calculate_future_esg_score(df, selected_category, kpis)
 
-    if future_esg is not None:
-        delta = future_esg - score
+if future_esg is None:
+    st.warning("Insufficient historical data to calculate Future ESG Score.")
+else:
+    delta = future_esg - score
 
-        fig = go.Figure(go.Indicator(
-            mode="number+delta",
-            value=future_esg,
-            delta={
-                "reference": score,
-                "increasing": {"color": "green"},
-                "decreasing": {"color": "red"}
-            },
-            title={"text": "Projected ESG Score (Next Year)"}
-        ))
+    fig = go.Figure(go.Indicator(
+        mode="number+delta",
+        value=future_esg,
+        delta={
+            "reference": score,
+            "increasing": {"color": "green"},
+            "decreasing": {"color": "red"}
+        },
+        title={"text": "Projected ESG Score (Next Year)"}
+    ))
 
-        st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-        st.info(
-            f"📊 ESG Outlook: "
-            f"{'Improving 📈' if delta > 0 else 'Worsening 📉'} "
-            f"({delta:+.2f})"
-        )
-    else:
-        st.warning("Insufficient historical data to calculate Future ESG Score.")
+    st.info(
+        f"📊 ESG Outlook: "
+        f"{'Improving 📈' if delta > 0 else 'Worsening 📉'} "
+        f"({delta:+.2f})"
+    )
 
 
 
