@@ -265,28 +265,37 @@ with tab1:
             if row.empty:
                 continue
 
-            # 🔹 استخراج القيم الرقمية فقط
-            year_values = []
+            # 🔹 اجمع القيم الرقمية فقط
+            values = []
             for y in sorted(year_cols, reverse=True):
-                val = normalize_numeric(row.iloc[0][y])
-                if val is not None:
-                    year_values.append((y, val))
+                v = normalize_numeric(row.iloc[0][y])
+                if v is not None:
+                    values.append((y, v))
 
-            if not year_values:
+            if not values:
                 col.metric(label=k, value="N/A")
                 continue
 
-            latest_year, latest_val = year_values[0]
-            prev_val = year_values[1][1] if len(year_values) > 1 else None
+            latest_year, latest_val = values[0]
 
-            # 🔹 حساب YOY بشكل آمن
-            delta_val = latest_val - prev_val if prev_val is not None else None
+            # 🔹 في حالة عدم وجود سنة مقارنة
+            if len(values) < 2:
+                col.metric(
+                    label=f"{k} ({latest_year})",
+                    value=f"{latest_val:,.2f}"
+                )
+                continue
 
+            prev_val = values[1][1]
+            delta_val = latest_val - prev_val
+
+            # ✅ هنا السر
             col.metric(
                 label=f"{k} ({latest_year})",
                 value=f"{latest_val:,.2f}",
-                delta=f"{delta_val:+.2f}" if delta_val is not None else None
+                delta=f"{delta_val:+.2f}"
             )
+
 
 
 # =========================================
