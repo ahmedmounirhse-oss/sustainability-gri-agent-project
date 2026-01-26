@@ -167,12 +167,13 @@ metric_col = next((c for c in cat_df.columns if "metric" in c.lower()), None)
 # =========================================
 # TABS (كما هي)
 # =========================================
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Data & KPIs",
     "🌍 ESG Score",
     "📈 Trends & Forecast",
     "📄 Reports",
-    "🏭 Company Comparison"
+    "🏭 Company Comparison",
+    "🤖 Sustainability AI Assistant"
 ])
 
 # ---------- باقي الكود كما هو ----------
@@ -514,3 +515,71 @@ with tab5:
         )
     else:
         st.info("Select at least two companies to enable comparison")
+# =========================================
+# TAB 6 — SUSTAINABILITY AI ASSISTANT
+# =========================================
+with tab6:
+    st.subheader("🤖 Sustainability AI Assistant")
+    st.markdown(
+        "This AI assistant interprets ESG analytics and provides "
+        "decision-oriented sustainability insights."
+    )
+
+    # --- Build context ---
+    esg_score, esg_status = calculate_esg_score(kpis)
+    contrib_df = calculate_kpi_contribution(kpis)
+    future_esg = calculate_future_esg_score(df, selected_category, kpis)
+
+    context = {
+        "company": company_name,
+        "esg_score": esg_score,
+        "esg_status": esg_status,
+        "future_esg": future_esg,
+        "top_kpis": (
+            contrib_df.sort_values("Contribution to ESG", ascending=False)
+            .head(3)["KPI"]
+            .tolist()
+            if not contrib_df.empty else []
+        )
+    }
+
+    # --- Rule-based AI logic ---
+    def ai_chat_response(question, ctx):
+        q = question.lower()
+
+        if "future" in q and "esg" in q:
+            if ctx["future_esg"] is None:
+                return "Insufficient historical data to project a future ESG scenario."
+            delta = ctx["future_esg"] - ctx["esg_score"]
+            trend = "improving" if delta > 0 else "deteriorating"
+            return (
+                f"The projected ESG score is {ctx['future_esg']} "
+                f"({trend} compared to the current score of {ctx['esg_score']})."
+            )
+
+        if "esg" in q:
+            return (
+                f"The current ESG score for {ctx['company']} is "
+                f"{ctx['esg_score']} ({ctx['esg_status']} performance)."
+            )
+
+        if "risk" in q or "priority" in q:
+            if not ctx["top_kpis"]:
+                return "No high-impact KPIs could be identified."
+            return (
+                "The highest priority KPIs affecting ESG performance are: "
+                + ", ".join(ctx["top_kpis"])
+            )
+
+        return (
+            "You can ask about ESG score interpretation, sustainability risks, "
+            "KPI priorities, or future ESG scenarios."
+        )
+
+    # --- Chat UI ---
+    user_question = st.text_input("💬 Ask the Sustainability AI Assistant")
+
+    if user_question:
+        st.chat_message("assistant").write(
+            ai_chat_response(user_question, context)
+        )
