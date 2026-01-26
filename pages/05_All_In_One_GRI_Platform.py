@@ -350,17 +350,17 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
     # =========================
     # KPI Contribution to ESG
     # =========================
-    st.subheader("📊 KPI Impact on ESG Score")
+    #st.subheader("📊 KPI Impact on ESG Score")
 
-    contrib_df = calculate_kpi_contribution(kpis)
-    if not contrib_df.empty:
-        total = contrib_df["Contribution to ESG"].sum()
-        contrib_df["Contribution %"] = (contrib_df["Contribution to ESG"] / total * 100).round(1)
+    #contrib_df = calculate_kpi_contribution(kpis)
+    #if not contrib_df.empty:
+        #total = contrib_df["Contribution to ESG"].sum()
+       # contrib_df["Contribution %"] = (contrib_df["Contribution to ESG"] / total * 100).round(1)
 
-        st.dataframe(
-            contrib_df.sort_values("Contribution %", ascending=False),
-            use_container_width=True
-        )
+      #  st.dataframe(
+     #       contrib_df.sort_values("Contribution %", ascending=False),
+    #        use_container_width=True
+   #     )
 
     # =========================
     # Future ESG Score
