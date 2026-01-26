@@ -293,33 +293,6 @@ with tab2:
     ))
     st.plotly_chart(fig, use_container_width=True)
 
-    # =========================
-    # Individual KPI Gauges
-    # =========================
-    st.subheader("📌 Individual KPI Performance")
-    cols = st.columns(3)
-
-    for i, (kpi, value) in enumerate(kpis.items()):
-        val = normalize_numeric(value)
-        if val is None:
-            continue
-
-        kpi_status = classify_kpi(val)
-        color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
-
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=val,
-            title={"text": f"{kpi} — {kpi_status}"},
-            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
-        ))
-
-       
-        cols[i % 3].plotly_chart(fig, use_container_width=True)
-
-    # =========================
-    # How is the ESG Score Calculated?
-    # =========================   
 with st.expander("📘 How is the ESG Score Calculated?"):
     st.markdown("""
 ### ESG Score Calculation Methodology
@@ -355,6 +328,32 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 
 This methodology enables transparent, quantitative, and decision-oriented ESG evaluation.
     """)
+
+    # =========================
+    # Individual KPI Gauges
+    # =========================
+    st.subheader("📌 Individual KPI Performance")
+    cols = st.columns(3)
+
+    for i, (kpi, value) in enumerate(kpis.items()):
+        val = normalize_numeric(value)
+        if val is None:
+            continue
+
+        kpi_status = classify_kpi(val)
+        color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
+
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=val,
+            title={"text": f"{kpi} — {kpi_status}"},
+            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
+        ))
+
+       
+        cols[i % 3].plotly_chart(fig, use_container_width=True)
+
+
 
     # =========================
     # KPI Contribution to ESG
