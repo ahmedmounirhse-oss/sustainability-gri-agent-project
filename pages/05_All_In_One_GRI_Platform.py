@@ -358,19 +358,19 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 - ESG < 40 → Risky (High Risk)
         """)
 
-    # =========================================
+# =========================================
 # TAB 2 — ESG SCORE + GAUGES
 # =========================================
 with tab2:
     st.subheader("🌍 Overall ESG Score")
 
     # =========================
-    # Overall ESG Score (Gauge)
+    # Overall ESG Score
     # =========================
     score, status = calculate_esg_score(kpis)
 
     if score is None or score == 0 or status == "N/A":
-        st.warning("⚠️ ESG Score cannot be calculated due to insufficient or missing KPI data.")
+        st.warning("⚠️ ESG Score cannot be calculated due to missing KPI data.")
     else:
         color = (
             "green" if status == "Excellent"
@@ -394,33 +394,26 @@ with tab2:
         st.plotly_chart(fig, width="stretch")
 
     # =========================
-    # ESG Calculation Methodology
+    # ESG Methodology
     # =========================
     with st.expander("📘 How is the ESG Score Calculated?"):
         st.markdown("""
-### ESG Score Calculation Methodology
+**Methodology Summary**
 
-The ESG score is calculated using a weighted, risk-oriented approach:
+- ESG Score is calculated using weighted environmental KPIs.
+- Formula:  
+  ESG Score = Σ((100 − KPI Value) × Weight) / Σ(Weights)
 
-**Step 1 – KPI Normalization**
-Each KPI is transformed into a performance score:
-
-Adjusted KPI Score = 100 − KPI Value
-
-**Step 2 – Category Weights**
+**Weights**
 - Energy: 25%
 - Water: 25%
 - Emissions: 35%
 - Waste: 15%
 
-**Step 3 – Aggregation**
-
-ESG Score = Σ(Adjusted KPI × Weight) / Σ(Weights)
-
-**Step 4 – Classification**
-- ≥ 70 → Excellent (Low Risk)
-- 40–69 → Moderate (Medium Risk)
-- < 40 → Risky (High Risk)
+**Risk Levels**
+- ≥ 70 → Excellent
+- 40–69 → Moderate
+- < 40 → Risky
         """)
 
     # =========================
@@ -432,7 +425,7 @@ ESG Score = Σ(Adjusted KPI × Weight) / Σ(Weights)
     for i, (kpi, value) in enumerate(kpis.items()):
         val = normalize_numeric(value)
 
-        # 🛑 Skip non-numeric KPIs
+        # skip non-numeric
         if not isinstance(val, (int, float)):
             continue
 
@@ -459,21 +452,6 @@ ESG Score = Σ(Adjusted KPI × Weight) / Σ(Weights)
 
         cols[i % 3].plotly_chart(fig, width="stretch")
 
-    # =========================
-    # (Optional) KPI Contribution
-    # =========================
-    # st.subheader("📊 KPI Contribution to ESG Score")
-    # contrib_df = calculate_kpi_contribution(kpis)
-    # if not contrib_df.empty:
-    #     total = contrib_df["Contribution to ESG"].sum()
-    #     contrib_df["Contribution %"] = (
-    #         contrib_df["Contribution to ESG"] / total * 100
-    #     ).round(1)
-    #
-    #     st.dataframe(
-    #         contrib_df.sort_values("Contribution %", ascending=False),
-    #         width="stretch"
-    #     )
 
 
 # =========================================
@@ -654,13 +632,11 @@ with tab6:
     # ---------- Context ----------
     esg_score, esg_status = calculate_esg_score(kpis)
     contrib_df = calculate_kpi_contribution(kpis)
-    future_esg = calculate_future_esg_score(df, selected_category, kpis)
 
     context = {
         "company": company_name,
         "esg_score": esg_score,
         "esg_status": esg_status,
-        "future_esg": future_esg,
         "top_kpis": (
             contrib_df.sort_values("Contribution to ESG", ascending=False)
             .head(3)["KPI"]
@@ -690,29 +666,30 @@ with tab6:
                 "- GRI 306 (Waste)"
             )
 
-        # ---- FUTURE ESG ----
-        if "future" in q and "esg" in q:
-            if ctx["future_esg"] is None or ctx["esg_score"] is None:
-                return "Insufficient data to determine future ESG trend."
-
-            delta = ctx["future_esg"] - ctx["esg_score"]
-            trend = "improving" if delta > 0 else "deteriorating"
-
-            return f"Future ESG score is {ctx['future_esg']} ({trend})."
-
         # ---- CURRENT ESG ----
         if "esg" in q:
+            if ctx["esg_score"] is None or ctx["esg_status"] == "N/A":
+                return "ESG score is currently unavailable due to missing data."
+
             return (
                 f"Current ESG score for {ctx['company']} is "
                 f"{ctx['esg_score']} ({ctx['esg_status']})."
             )
 
-        # ---- FALLBACK ----
+        # ---- KPI INSIGHT ----
+        if "kpi" in q or "risk" in q:
+            if not ctx["top_kpis"]:
+                return "No high-impact KPIs identified due to insufficient data."
+            return (
+                "Top ESG-impact KPIs:\n- "
+                + "\n- ".join(ctx["top_kpis"])
+            )
+
         return (
-            "You can ask about ESG score, future ESG, KPI risks, or GRI standards."
+            "You can ask about ESG score, KPI risks, or GRI standards."
         )
 
-    # ---------- INPUT BOX ----------
+    # ---------- INPUT ----------
     user_question = st.text_input(
         "💬 Ask the Sustainability AI Assistant",
         placeholder="e.g. What does GRI 305 mean?"
