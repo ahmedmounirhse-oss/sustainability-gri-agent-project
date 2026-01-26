@@ -455,7 +455,7 @@ with tab2:
 
 
 # =========================================
-# TAB 3 — TRENDS & FORECAST
+# TAB 3 — KPI Trends & Forecast (FINAL FINAL)
 # =========================================
 with tab3:
     st.subheader("📈 KPI Trends & Forecast")
@@ -470,8 +470,6 @@ with tab3:
         # ----------------------
         chart_df = pd.DataFrame(trend, index=["Value"]).T
         chart_df.index = chart_df.index.astype(int)
-
-        # تنظيف القيم غير الرقمية
         chart_df["Value"] = pd.to_numeric(chart_df["Value"], errors="coerce")
 
         # ----------------------
@@ -479,7 +477,6 @@ with tab3:
         # ----------------------
         fig = go.Figure()
 
-        # Historical data
         fig.add_trace(
             go.Scatter(
                 x=chart_df.index,
@@ -502,7 +499,6 @@ with tab3:
             next_year = int(years.max() + 1)
             forecast_value = float(model(next_year))
 
-            # Forecast point
             fig.add_trace(
                 go.Scatter(
                     x=[next_year],
@@ -513,7 +509,6 @@ with tab3:
                 )
             )
 
-            # Forecast trend line
             fig.add_trace(
                 go.Scatter(
                     x=[years.max(), next_year],
@@ -524,11 +519,15 @@ with tab3:
                 )
             )
 
-            st.info(
-                f"🔮 {metric} — Forecast for {next_year}: {forecast_value:.2f}"
+            # ✅ markdown بدل info
+            st.markdown(
+                f"🔮 **{metric}** — Forecast for **{next_year}**: `{forecast_value:.2f}`"
             )
         else:
-            st.warning(f"⚠️ Not enough numeric data to forecast {metric}")
+            # ✅ markdown بدل warning
+            st.markdown(
+                f"⚠️ **{metric}**: Not enough numeric data to forecast"
+            )
 
         # ----------------------
         # Safe Axis Handling
@@ -546,7 +545,9 @@ with tab3:
             template="plotly_white"
         )
 
-        # ✅ KEY FIX (المهم جدًا)
+        # ----------------------
+        # Plot (WITH UNIQUE KEY)
+        # ----------------------
         st.plotly_chart(
             fig,
             width="stretch",
