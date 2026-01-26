@@ -460,54 +460,46 @@ with tab3:
         )
 
         # ======================
-        # Forecasting (Linear Regression)
-        # ======================
-        if len(chart_df) >= 3:
-            years = chart_df.index.values
-            values = chart_df["Value"].values
+# Forecasting (Linear Regression)
+# ======================
+clean_df = chart_df.dropna(subset=["Value"])
 
-            model = np.poly1d(np.polyfit(years, values, 1))
-            next_year = years.max() + 1
-            forecast_value = model(next_year)
+if len(clean_df) >= 2:
+    years = clean_df.index.values.astype(float)
+    values = clean_df["Value"].values.astype(float)
 
-            # نقطة التوقع
-            fig.add_trace(
-                go.Scatter(
-                    x=[next_year],
-                    y=[forecast_value],
-                    mode="markers",
-                    marker=dict(size=12, symbol="x"),
-                    name="Forecast"
-                )
-            )
+    model = np.poly1d(np.polyfit(years, values, 1))
+    next_year = years.max() + 1
+    forecast_value = model(next_year)
 
-            # خط التوقع المتقطع
-            fig.add_trace(
-                go.Scatter(
-                    x=[years.max(), next_year],
-                    y=[values[-1], forecast_value],
-                    mode="lines",
-                    line=dict(dash="dash"),
-                    name="Forecast Trend"
-                )
-            )
-
-            # نص توضيحي
-            st.info(
-                f"🔮 {metric} — Forecast for {next_year}: {forecast_value:.2f}"
-            )
-
-        # ======================
-        # تنسيق الشكل
-        # ======================
-        fig.update_layout(
-            title=f"{metric} Trend & Forecast",
-            xaxis_title="Year",
-            yaxis_title="Value",
-            template="plotly_white"
+    # نقطة التوقع
+    fig.add_trace(
+        go.Scatter(
+            x=[next_year],
+            y=[forecast_value],
+            mode="markers",
+            marker=dict(size=12, symbol="x"),
+            name="Forecast"
         )
+    )
 
-        st.plotly_chart(fig, use_container_width=True)
+    # خط التوقع
+    fig.add_trace(
+        go.Scatter(
+            x=[years.max(), next_year],
+            y=[values[-1], forecast_value],
+            mode="lines",
+            line=dict(dash="dash"),
+            name="Forecast Trend"
+        )
+    )
+
+    st.info(
+        f"🔮 {metric} — Forecast for {int(next_year)}: {forecast_value:.2f}"
+    )
+else:
+    st.warning(f"⚠️ Not enough numeric data to forecast {metric}")
+
 
 
 # =========================================
