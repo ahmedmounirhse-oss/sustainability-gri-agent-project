@@ -20,6 +20,20 @@ from src.ai_insight import generate_ai_insight
 # PAGE CONFIG
 # =========================================
 st.set_page_config(page_title="All In One GRI Platform", layout="wide")
+st.markdown(
+    """
+    <style>
+    h1 {
+        color: #0E4C92;
+    }
+    h2 {
+        color: #1f77b4;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.title("🏢 All In One GRI Platform — Companies")
 
 # =========================================
