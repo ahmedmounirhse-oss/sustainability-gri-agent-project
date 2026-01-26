@@ -256,7 +256,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📈 Trends & Forecast",
     "📄 Reports",
     "🏭 Company Comparison",
-    "🤖 Sustainability AI Assistant"
+   
 ])
 
 # ---------- باقي الكود كما هو ----------
