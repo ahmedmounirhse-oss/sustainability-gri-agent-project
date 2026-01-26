@@ -293,8 +293,8 @@ with tab2:
     ))
     st.plotly_chart(fig, use_container_width=True)
 
-with st.expander("📘 How is the ESG Score Calculated?"):
-    st.markdown("""
+    with st.expander("📘 How is the ESG Score Calculated?"):
+        st.markdown("""
 ### ESG Score Calculation Methodology
 
 The ESG score is calculated using a weighted, risk-oriented approach based on environmental KPIs.
@@ -306,16 +306,13 @@ Each KPI value is transformed into a performance score using the following formu
 Adjusted\ KPI\ Score = 100 - KPI\ Value
 \]
 
-This ensures that lower environmental impact results in a higher ESG contribution.
-
-**Step 2 – Category Weighting**  
-Each KPI is assigned a predefined weight according to its environmental significance:
+**Step 2 – Category Weighting**
 - Energy: 25%
 - Water: 25%
 - Emissions: 35%
 - Waste: 15%
 
-**Step 3 – Weighted Aggregation**  
+**Step 3 – Weighted Aggregation**
 
 \[
 ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
@@ -325,9 +322,7 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 - ESG ≥ 70 → Excellent (Low Risk)
 - ESG 40–69 → Moderate (Medium Risk)
 - ESG < 40 → Risky (High Risk)
-
-This methodology enables transparent, quantitative, and decision-oriented ESG evaluation.
-    """)
+        """)
 
     # =========================
     # Individual KPI Gauges
@@ -350,10 +345,7 @@ This methodology enables transparent, quantitative, and decision-oriented ESG ev
             gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
         ))
 
-       
         cols[i % 3].plotly_chart(fig, use_container_width=True)
-
-
 
     # =========================
     # KPI Contribution to ESG
@@ -400,6 +392,7 @@ This methodology enables transparent, quantitative, and decision-oriented ESG ev
         )
     else:
         st.warning("Insufficient historical data to calculate Future ESG Score.")
+
 
 
 # =========================================
