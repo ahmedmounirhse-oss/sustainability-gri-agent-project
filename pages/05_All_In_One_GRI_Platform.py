@@ -635,6 +635,7 @@ with tab6:
             if ctx["future_esg"] is None:
                 return "Insufficient data to project future ESG."
             delta = safe_subtract(future_esg, score)
+
             trend = "improving" if delta > 0 else "deteriorating"
             return f"Future ESG score is {ctx['future_esg']} ({trend})."
 
