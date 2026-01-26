@@ -259,26 +259,32 @@ with tab1:
     st.subheader("📌 KPI Smart Cards (YOY)")
     if year_cols:
         cols = st.columns(len(kpis))
-        latest = year_cols[-1]
-        prev = year_cols[-2] if len(year_cols) > 1 else None
 
         for col, (k, _) in zip(cols, kpis.items()):
             row = cat_df[cat_df[metric_col] == k]
             if row.empty:
                 continue
 
-            latest_val = normalize_numeric(row.iloc[0][latest])
-            prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
+            # 🔹 استخراج القيم الرقمية فقط
+            year_values = []
+            for y in sorted(year_cols, reverse=True):
+                val = normalize_numeric(row.iloc[0][y])
+                if val is not None:
+                    year_values.append((y, val))
 
-            # ✅ FIX: حساب الدلتا بشكل آمن
-            if latest_val is None or prev_val is None:
-                delta_val = None
-            else:
-                delta_val = latest_val - prev_val
+            if not year_values:
+                col.metric(label=k, value="N/A")
+                continue
+
+            latest_year, latest_val = year_values[0]
+            prev_val = year_values[1][1] if len(year_values) > 1 else None
+
+            # 🔹 حساب YOY بشكل آمن
+            delta_val = latest_val - prev_val if prev_val is not None else None
 
             col.metric(
-                label=f"{k} ({latest})",
-                value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
+                label=f"{k} ({latest_year})",
+                value=f"{latest_val:,.2f}",
                 delta=f"{delta_val:+.2f}" if delta_val is not None else None
             )
 
