@@ -348,20 +348,19 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 
     for i, (kpi, value) in enumerate(kpis.items()):
         val = normalize_numeric(value)
-        if val is None:
-            continue
 
-        kpi_status = classify_kpi(val)
-        color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
+    if val is None or not np.isfinite(val): 
+        continue
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=val,
-            title={"text": f"{kpi} — {kpi_status}"},
-            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
-        ))
+    axis_max = max(100, val * 1.5)
 
-        cols[i % 3].plotly_chart(fig, use_container_width=True)
+fig = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=val,
+    gauge={"axis": {"range": [0, axis_max]}}
+))    
+
+cols[i % 3].plotly_chart(fig, use_container_width=True)
 
     # =========================
     # KPI Contribution to ESG
