@@ -20,14 +20,22 @@ from src.ai_insight import generate_ai_insight
 # PAGE CONFIG
 # =========================================
 st.set_page_config(page_title="All In One GRI Platform", layout="wide")
+
+# =========================================
+# UI STYLE (Bold Tabs & Titles)
+# =========================================
 st.markdown(
     """
     <style>
-    h1 {
-        color: #0E4C92;
+    /* Tabs titles */
+    div[data-baseweb="tab"] > button {
+        font-weight: 700;
+        font-size: 16px;
     }
-    h2 {
-        color: #1f77b4;
+
+    /* Titles & headers */
+    h1, h2, h3, h4 {
+        font-weight: 800 !important;
     }
     </style>
     """,
