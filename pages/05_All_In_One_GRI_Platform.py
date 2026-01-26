@@ -460,7 +460,7 @@ with tab2:
 with tab3:
     st.subheader("📈 KPI Trends & Forecast")
 
-    for metric in kpis:
+    for i, metric in enumerate(kpis):
         trend = get_trend_data(df, selected_category, metric)
         if not trend:
             continue
@@ -546,8 +546,12 @@ with tab3:
             template="plotly_white"
         )
 
-        st.plotly_chart(fig, width="stretch")
-
+        # ✅ KEY FIX (المهم جدًا)
+        st.plotly_chart(
+            fig,
+            width="stretch",
+            key=f"trend_chart_{selected_category}_{metric}_{i}"
+        )
 
 
 # =========================================
