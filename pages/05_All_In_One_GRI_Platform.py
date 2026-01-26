@@ -569,12 +569,9 @@ with tab5:
 # =========================================
 with tab6:
     st.subheader("🤖 Sustainability AI Assistant")
-    st.markdown(
-        "This AI assistant interprets ESG analytics and provides "
-        "decision-oriented sustainability insights."
-    )
+    st.write("Ask questions about company ESG data or GRI standards.")
 
-    # --- Build context ---
+    # ---------- Context ----------
     esg_score, esg_status = calculate_esg_score(kpis)
     contrib_df = calculate_kpi_contribution(kpis)
     future_esg = calculate_future_esg_score(df, selected_category, kpis)
@@ -592,11 +589,10 @@ with tab6:
         )
     }
 
-    # --- Rule-based AI logic ---
+    # ---------- AI Logic ----------
     def ai_chat_response(question, ctx):
         q = question.lower()
 
-        # ---- GRI Explanation ----
         if "gri" in q or "standard" in q:
             for key, info in GRI_KNOWLEDGE.items():
                 if key in q:
@@ -606,41 +602,36 @@ with tab6:
                         f"Recommended actions:\n{info['recommendation']}"
                     )
             return (
-                "GRI standards include:\n"
-                "- GRI 302: Energy\n"
-                "- GRI 303: Water\n"
-                "- GRI 305: Emissions\n"
-                "- GRI 306: Waste\n"
-                "You can ask about any specific standard."
+                "GRI standards covered:\n"
+                "- GRI 302 (Energy)\n"
+                "- GRI 303 (Water)\n"
+                "- GRI 305 (Emissions)\n"
+                "- GRI 306 (Waste)"
             )
 
-        # ---- KPI ↔ GRI Linking ----
-        if "why" in q or "related" in q:
-            for key, info in GRI_KNOWLEDGE.items():
-                if key in q:
-                    return (
-                        f"This KPI is directly related to {info['standard']}.\n\n"
-                        f"{info['description']}"
-                    )
-
-        # ---- ESG & Forecast ----
         if "future" in q and "esg" in q:
             if ctx["future_esg"] is None:
                 return "Insufficient data to project future ESG."
             delta = ctx["future_esg"] - ctx["esg_score"]
             trend = "improving" if delta > 0 else "deteriorating"
-            return (
-                f"The projected ESG score is {ctx['future_esg']} "
-                f"({trend} compared to the current score)."
-            )
+            return f"Future ESG score is {ctx['future_esg']} ({trend})."
 
         if "esg" in q:
             return (
-                f"The current ESG score for {ctx['company']} is "
-                f"{ctx['esg_score']} ({ctx['esg_status']} performance)."
+                f"Current ESG score for {ctx['company']} is "
+                f"{ctx['esg_score']} ({ctx['esg_status']})."
             )
 
         return (
-            "I can explain company ESG performance, KPI risks, future scenarios, "
-            "and GRI standards. Try asking about emissions, water, energy, or GRI 305."
+            "You can ask about ESG score, future ESG, KPI risks, or GRI standards."
         )
+
+    # ---------- INPUT BOX (ده المهم) ----------
+    user_question = st.text_input(
+        "💬 Ask the Sustainability AI Assistant",
+        placeholder="e.g. What does GRI 305 mean?"
+    )
+
+    if user_question:
+        answer = ai_chat_response(user_question, context)
+        st.chat_message("assistant").write(answer)
