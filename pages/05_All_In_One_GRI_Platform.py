@@ -3,6 +3,20 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 
+def plot(fig, name):
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        key=f"{name}_{id(fig)}"
+    )
+
+def safe_plotly(fig, key_prefix):
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        key=f"{key_prefix}_{id(fig)}"
+    )
+
 def safe_subtract(a, b):
     if a is None or b is None:
         return None
@@ -322,7 +336,8 @@ with tab2:
             title={"text": f"ESG Score — {status}"},
             gauge={"axis": {"range": [0, 100]}, "bar": {"color": color}}
         ))
-        st.plotly_chart(fig, use_container_width=True)
+        plot(fig, "trend")
+
 
     # =========================
     # ESG Calculation Methodology
@@ -391,7 +406,8 @@ with tab2:
             )
         )
 
-        st.plotly_chart(fig, width="stretch")
+        plot(fig, "trend")
+
 
     # =========================
     # ESG Methodology
@@ -548,11 +564,7 @@ with tab3:
         # ----------------------
         # Plot (WITH UNIQUE KEY)
         # ----------------------
-        st.plotly_chart(
-            fig,
-            width="stretch",
-            key=f"trend_chart_{selected_category}_{metric}_{i}"
-        )
+        plot(fig, "trend")
 
 
 # =========================================
