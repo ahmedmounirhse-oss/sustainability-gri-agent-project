@@ -265,11 +265,11 @@ with tab1:
             if row.empty:
                 continue
 
-            # 🔹 اجمع القيم الرقمية فقط
+            # 🔹 جمع القيم الرقمية فقط
             values = []
             for y in sorted(year_cols, reverse=True):
                 v = normalize_numeric(row.iloc[0][y])
-                if v is not None:
+                if isinstance(v, (int, float)):
                     values.append((y, v))
 
             if not values:
@@ -278,7 +278,7 @@ with tab1:
 
             latest_year, latest_val = values[0]
 
-            # 🔹 في حالة عدم وجود سنة مقارنة
+            # 🔹 حالة سنة واحدة فقط (NO DELTA AT ALL)
             if len(values) < 2:
                 col.metric(
                     label=f"{k} ({latest_year})",
@@ -289,12 +289,13 @@ with tab1:
             prev_val = values[1][1]
             delta_val = latest_val - prev_val
 
-            # ✅ هنا السر
+            # 🔥 استدعاء نظيف بدون أي None
             col.metric(
                 label=f"{k} ({latest_year})",
                 value=f"{latest_val:,.2f}",
                 delta=f"{delta_val:+.2f}"
             )
+
 
 
 
