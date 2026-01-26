@@ -269,14 +269,19 @@ with tab1:
 
             latest_val = normalize_numeric(row.iloc[0][latest])
             prev_val = normalize_numeric(row.iloc[0][prev]) if prev else None
-            delta = "N/A" if latest_val is None or prev_val is None else f"{latest_val - prev_val:+.2f}"
+
+            # ✅ FIX: حساب الدلتا بشكل آمن
+            if latest_val is None or prev_val is None:
+                delta_val = None
+            else:
+                delta_val = latest_val - prev_val
 
             col.metric(
                 label=f"{k} ({latest})",
                 value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
-                delta=delta if isinstance(delta, (int, float)) else None
-
+                delta=f"{delta_val:+.2f}" if delta_val is not None else None
             )
+
 
 # =========================================
 # TAB 2 — ESG SCORE + GAUGES
