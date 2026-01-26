@@ -387,7 +387,7 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 #if future_esg is None:
  #   st.warning("Insufficient historical data to calculate Future ESG Score.")
 #else:
- 
+ #   delta = future_esg - score
 
  #   fig = go.Figure(go.Indicator(
  #       mode="number+delta",
