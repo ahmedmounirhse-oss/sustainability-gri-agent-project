@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+import sys
+sys.setrecursionlimit(10**7)
 
 def safe_subtract(a, b):
     if a is None or b is None:
