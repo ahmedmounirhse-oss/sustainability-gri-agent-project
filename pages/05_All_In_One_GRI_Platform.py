@@ -274,7 +274,8 @@ with tab1:
             col.metric(
                 label=f"{k} ({latest})",
                 value=f"{latest_val:,.2f}" if latest_val is not None else "N/A",
-                delta=delta
+                delta=delta if isinstance(delta, (int, float)) else None
+
             )
 
 # =========================================
