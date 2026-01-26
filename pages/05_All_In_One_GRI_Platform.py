@@ -24,23 +24,27 @@ st.set_page_config(page_title="All In One GRI Platform", layout="wide")
 # =========================================
 # UI STYLE (Bold Tabs & Titles)
 # =========================================
-st.markdown(
-    """
-    <style>
-    /* Tabs titles */
-    div[data-baseweb="tab"] > button {
-        font-weight: 700;
-        font-size: 16px;
-    }
+st.markdown("""
+<style>
 
-    /* Titles & headers */
-    h1, h2, h3, h4 {
-        font-weight: 800 !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+/* =========================
+   TAB LABELS (BOLD)
+========================= */
+button[data-testid="stTab"] {
+    font-weight: 800 !important;
+    font-size: 16px !important;
+}
+
+/* =========================
+   TITLES & HEADERS
+========================= */
+h1, h2, h3 {
+    font-weight: 900 !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 
 st.title("🏢 All In One GRI Platform — Companies")
 
