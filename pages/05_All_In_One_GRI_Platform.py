@@ -634,6 +634,7 @@ with tab6:
     def ai_chat_response(question, ctx):
         q = question.lower()
 
+        # ---- GRI QUESTIONS ----
         if "gri" in q or "standard" in q:
             for key, info in GRI_KNOWLEDGE.items():
                 if key in q:
@@ -650,29 +651,29 @@ with tab6:
                 "- GRI 306 (Waste)"
             )
 
+        # ---- FUTURE ESG ----
         if "future" in q and "esg" in q:
-            if ctx["future_esg"] is None:
-                return "Insufficient data to project future ESG."
-            delta = safe_subtract(ctx["future_esg"], ctx["esg_score"])
+            if ctx["future_esg"] is None or ctx["esg_score"] is None:
+                return "Insufficient data to determine future ESG trend."
 
-        if delta is None:
-           return "Future ESG trend cannot be determined due to insufficient data."     
-            
-        trend = "improving" if delta > 0 else "deteriorating"
+            delta = ctx["future_esg"] - ctx["esg_score"]
+            trend = "improving" if delta > 0 else "deteriorating"
 
-        return f"Future ESG score is {ctx['future_esg']} ({trend})."
+            return f"Future ESG score is {ctx['future_esg']} ({trend})."
 
+        # ---- CURRENT ESG ----
         if "esg" in q:
             return (
                 f"Current ESG score for {ctx['company']} is "
                 f"{ctx['esg_score']} ({ctx['esg_status']})."
             )
 
+        # ---- FALLBACK ----
         return (
             "You can ask about ESG score, future ESG, KPI risks, or GRI standards."
         )
 
-    # ---------- INPUT BOX (ده المهم) ----------
+    # ---------- INPUT BOX ----------
     user_question = st.text_input(
         "💬 Ask the Sustainability AI Assistant",
         placeholder="e.g. What does GRI 305 mean?"
