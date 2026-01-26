@@ -465,16 +465,21 @@ with tab3:
         if not trend:
             continue
 
-        # تحويل البيانات إلى DataFrame
+        # ----------------------
+        # Prepare Data
+        # ----------------------
         chart_df = pd.DataFrame(trend, index=["Value"]).T
         chart_df.index = chart_df.index.astype(int)
 
-        # ======================
-        # إنشاء الشكل
-        # ======================
+        # تنظيف القيم غير الرقمية
+        chart_df["Value"] = pd.to_numeric(chart_df["Value"], errors="coerce")
+
+        # ----------------------
+        # Create Figure
+        # ----------------------
         fig = go.Figure()
 
-        # البيانات التاريخية
+        # Historical data
         fig.add_trace(
             go.Scatter(
                 x=chart_df.index,
@@ -484,46 +489,64 @@ with tab3:
             )
         )
 
-        # ======================
-# Forecasting (Linear Regression)
-# ======================
-clean_df = chart_df.dropna(subset=["Value"])
+        # ----------------------
+        # Forecasting (SAFE)
+        # ----------------------
+        clean_df = chart_df.dropna(subset=["Value"])
 
-if len(clean_df) >= 2:
-    years = clean_df.index.values.astype(float)
-    values = clean_df["Value"].values.astype(float)
+        if len(clean_df) >= 2:
+            years = clean_df.index.values.astype(float)
+            values = clean_df["Value"].values.astype(float)
 
-    model = np.poly1d(np.polyfit(years, values, 1))
-    next_year = years.max() + 1
-    forecast_value = model(next_year)
+            model = np.poly1d(np.polyfit(years, values, 1))
+            next_year = int(years.max() + 1)
+            forecast_value = float(model(next_year))
 
-    # نقطة التوقع
-    fig.add_trace(
-        go.Scatter(
-            x=[next_year],
-            y=[forecast_value],
-            mode="markers",
-            marker=dict(size=12, symbol="x"),
-            name="Forecast"
+            # Forecast point
+            fig.add_trace(
+                go.Scatter(
+                    x=[next_year],
+                    y=[forecast_value],
+                    mode="markers",
+                    marker=dict(size=12, symbol="x"),
+                    name="Forecast"
+                )
+            )
+
+            # Forecast trend line
+            fig.add_trace(
+                go.Scatter(
+                    x=[years.max(), next_year],
+                    y=[values[-1], forecast_value],
+                    mode="lines",
+                    line=dict(dash="dash"),
+                    name="Forecast Trend"
+                )
+            )
+
+            st.info(
+                f"🔮 {metric} — Forecast for {next_year}: {forecast_value:.2f}"
+            )
+        else:
+            st.warning(f"⚠️ Not enough numeric data to forecast {metric}")
+
+        # ----------------------
+        # Safe Axis Handling
+        # ----------------------
+        y_values = clean_df["Value"]
+
+        fig.update_layout(
+            title=f"{metric} Trend & Forecast",
+            xaxis_title="Year",
+            yaxis_title="Value",
+            yaxis_range=[
+                0,
+                y_values.max() * 1.2
+            ] if not y_values.empty and y_values.max() > 0 else None,
+            template="plotly_white"
         )
-    )
 
-    # خط التوقع
-    fig.add_trace(
-        go.Scatter(
-            x=[years.max(), next_year],
-            y=[values[-1], forecast_value],
-            mode="lines",
-            line=dict(dash="dash"),
-            name="Forecast Trend"
-        )
-    )
-
-    st.info(
-        f"🔮 {metric} — Forecast for {int(next_year)}: {forecast_value:.2f}"
-    )
-else:
-    st.warning(f"⚠️ Not enough numeric data to forecast {metric}")
+        st.plotly_chart(fig, width="stretch")
 
 
 
