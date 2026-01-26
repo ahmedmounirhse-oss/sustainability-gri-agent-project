@@ -358,6 +358,71 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 - ESG < 40 → Risky (High Risk)
         """)
 
+    # =========================================
+# TAB 2 — ESG SCORE + GAUGES
+# =========================================
+with tab2:
+    st.subheader("🌍 Overall ESG Score")
+
+    # =========================
+    # Overall ESG Score (Gauge)
+    # =========================
+    score, status = calculate_esg_score(kpis)
+
+    if score is None or score == 0 or status == "N/A":
+        st.warning("⚠️ ESG Score cannot be calculated due to insufficient or missing KPI data.")
+    else:
+        color = (
+            "green" if status == "Excellent"
+            else "orange" if status == "Moderate"
+            else "red"
+        )
+
+        fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=float(score),
+                number={"suffix": " / 100"},
+                title={"text": f"ESG Score — {status}"},
+                gauge={
+                    "axis": {"range": [0, 100]},
+                    "bar": {"color": color}
+                }
+            )
+        )
+
+        st.plotly_chart(fig, width="stretch")
+
+    # =========================
+    # ESG Calculation Methodology
+    # =========================
+    with st.expander("📘 How is the ESG Score Calculated?"):
+        st.markdown("""
+### ESG Score Calculation Methodology
+
+The ESG score is calculated using a weighted, risk-oriented approach:
+
+**Step 1 – KPI Normalization**
+Each KPI is transformed into a performance score:
+
+Adjusted KPI Score = 100 − KPI Value
+
+**Step 2 – Category Weights**
+- Energy: 25%
+- Water: 25%
+- Emissions: 35%
+- Waste: 15%
+
+**Step 3 – Aggregation**
+
+ESG Score = Σ(Adjusted KPI × Weight) / Σ(Weights)
+
+**Step 4 – Classification**
+- ≥ 70 → Excellent (Low Risk)
+- 40–69 → Moderate (Medium Risk)
+- < 40 → Risky (High Risk)
+        """)
+
     # =========================
     # Individual KPI Gauges
     # =========================
@@ -366,67 +431,49 @@ ESG\ Score = \frac{\sum (Adjusted\ KPI \times Weight)}{\sum Weights}
 
     for i, (kpi, value) in enumerate(kpis.items()):
         val = normalize_numeric(value)
-        if val is None:
+
+        # 🛑 Skip non-numeric KPIs
+        if not isinstance(val, (int, float)):
             continue
 
         kpi_status = classify_kpi(val)
-        color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
+        color = (
+            "green" if kpi_status == "Excellent"
+            else "orange" if kpi_status == "Moderate"
+            else "red"
+        )
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=val,
-            title={"text": f"{kpi} — {kpi_status}"},
-            gauge={"axis": {"range": [0, max(100, val * 1.5)]}, "bar": {"color": color}}
-        ))
+        max_range = max(100.0, float(val) * 1.5)
 
-        cols[i % 3].plotly_chart(fig, use_container_width=True)
+        fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=float(val),
+                title={"text": f"{kpi} — {kpi_status}"},
+                gauge={
+                    "axis": {"range": [0, max_range]},
+                    "bar": {"color": color}
+                }
+            )
+        )
 
-    # =========================
-    # KPI Contribution to ESG
-    # =========================
-    #st.subheader("📊 KPI Impact on ESG Score")
-
-    #contrib_df = calculate_kpi_contribution(kpis)
-    #if not contrib_df.empty:
-        #total = contrib_df["Contribution to ESG"].sum()
-       # contrib_df["Contribution %"] = (contrib_df["Contribution to ESG"] / total * 100).round(1)
-
-      #  st.dataframe(
-     #       contrib_df.sort_values("Contribution %", ascending=False),
-    #        use_container_width=True
-   #     )
+        cols[i % 3].plotly_chart(fig, width="stretch")
 
     # =========================
-    # Future ESG Score
+    # (Optional) KPI Contribution
     # =========================
- #   st.subheader("🔮 Future ESG Score (Forecast-Based)")
-
- #   future_esg = calculate_future_esg_score(df, selected_category, kpis)
-
-#if future_esg is None:
- #   st.warning("Insufficient historical data to calculate Future ESG Score.")
-#else:
- #   delta = future_esg - score
-
- #   fig = go.Figure(go.Indicator(
- #       mode="number+delta",
- #       value=future_esg,
-#        delta={
-#            "reference": score,
-#            "increasing": {"color": "green"},
-#            "decreasing": {"color": "red"}
-#        },
-#        title={"text": "Projected ESG Score (Next Year)"}
-#    ))
-
-#    st.plotly_chart(fig, use_container_width=True)
-
-#    st.info(
-#        f"📊 ESG Outlook: "
-#        f"{'Improving 📈' if delta > 0 else 'Worsening 📉'} "
-#       f"({delta:+.2f})"
-#    )
-
+    # st.subheader("📊 KPI Contribution to ESG Score")
+    # contrib_df = calculate_kpi_contribution(kpis)
+    # if not contrib_df.empty:
+    #     total = contrib_df["Contribution to ESG"].sum()
+    #     contrib_df["Contribution %"] = (
+    #         contrib_df["Contribution to ESG"] / total * 100
+    #     ).round(1)
+    #
+    #     st.dataframe(
+    #         contrib_df.sort_values("Contribution %", ascending=False),
+    #         width="stretch"
+    #     )
 
 
 # =========================================
