@@ -275,6 +275,9 @@ with tab1:
 # =========================================
 # TAB 2 — ESG SCORE + GAUGES
 # =========================================
+# =========================================
+# TAB 2 — ESG SCORE + GAUGES
+# =========================================
 with tab2:
     st.subheader("🌍 Overall ESG Score")
 
@@ -282,17 +285,24 @@ with tab2:
     # Current ESG Score Gauge
     # =========================
     score, status = calculate_esg_score(kpis)
-    color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=score,
-        number={"suffix": " / 100"},
-        title={"text": f"ESG Score — {status}"},
-        gauge={"axis": {"range": [0, 100]}, "bar": {"color": color}}
-    ))
-    st.plotly_chart(fig, use_container_width=True)
+    if status == "N/A" or score == 0:
+        st.warning("ESG Score cannot be calculated due to missing or unclassified KPI data.")
+    else:
+        color = "green" if status == "Excellent" else "orange" if status == "Moderate" else "red"
 
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=score,
+            number={"suffix": " / 100"},
+            title={"text": f"ESG Score — {status}"},
+            gauge={"axis": {"range": [0, 100]}, "bar": {"color": color}}
+        ))
+        st.plotly_chart(fig, use_container_width=True)
+
+    # =========================
+    # ESG Calculation Methodology
+    # =========================
     with st.expander("📘 How is the ESG Score Calculated?"):
         st.markdown("""
 ### ESG Score Calculation Methodology
@@ -300,7 +310,7 @@ with tab2:
 The ESG score is calculated using a weighted, risk-oriented approach based on environmental KPIs.
 
 **Step 1 – KPI Normalization**  
-Each KPI value is transformed into a performance score using the following formula:
+Each KPI value is transformed into a performance score using:
 
 \[
 Adjusted\ KPI\ Score = 100 - KPI\ Value
