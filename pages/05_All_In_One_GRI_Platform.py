@@ -45,7 +45,6 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
-
 st.title("🏢 All In One GRI Platform — Companies")
 
 # =========================================
