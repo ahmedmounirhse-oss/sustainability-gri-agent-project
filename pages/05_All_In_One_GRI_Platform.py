@@ -256,7 +256,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📈 Trends & Forecast",
     "📄 Reports",
     "🏭 Company Comparison",
-   
+    "🤖 Sustainability AI Assistant"
 ])
 
 # ---------- باقي الكود كما هو ----------
@@ -662,3 +662,79 @@ with tab5:
         )
     else:
         st.info("Select at least two companies to enable comparison")
+# =========================================
+# TAB 6 — SUSTAINABILITY AI ASSISTANT
+# =========================================
+with tab6:
+    st.subheader("🤖 Sustainability AI Assistant")
+    st.write("Ask questions about company ESG data or GRI standards.")
+
+    # ---------- Context ----------
+    esg_score, esg_status = calculate_esg_score(kpis)
+    contrib_df = calculate_kpi_contribution(kpis)
+
+    context = {
+        "company": company_name,
+        "esg_score": esg_score,
+        "esg_status": esg_status,
+        "top_kpis": (
+            contrib_df.sort_values("Contribution to ESG", ascending=False)
+            .head(3)["KPI"]
+            .tolist()
+            if not contrib_df.empty else []
+        )
+    }
+
+    # ---------- AI Logic ----------
+    def ai_chat_response(question, ctx):
+        q = question.lower()
+
+        # ---- GRI QUESTIONS ----
+        if "gri" in q or "standard" in q:
+            for key, info in GRI_KNOWLEDGE.items():
+                if key in q:
+                    return (
+                        f"{info['standard']}\n\n"
+                        f"{info['description']}\n\n"
+                        f"Recommended actions:\n{info['recommendation']}"
+                    )
+            return (
+                "GRI standards covered:\n"
+                "- GRI 302 (Energy)\n"
+                "- GRI 303 (Water)\n"
+                "- GRI 305 (Emissions)\n"
+                "- GRI 306 (Waste)"
+            )
+
+        # ---- CURRENT ESG ----
+        if "esg" in q:
+            if ctx["esg_score"] is None or ctx["esg_status"] == "N/A":
+                return "ESG score is currently unavailable due to missing data."
+
+            return (
+                f"Current ESG score for {ctx['company']} is "
+                f"{ctx['esg_score']} ({ctx['esg_status']})."
+            )
+
+        # ---- KPI INSIGHT ----
+        if "kpi" in q or "risk" in q:
+            if not ctx["top_kpis"]:
+                return "No high-impact KPIs identified due to insufficient data."
+            return (
+                "Top ESG-impact KPIs:\n- "
+                + "\n- ".join(ctx["top_kpis"])
+            )
+
+        return (
+            "You can ask about ESG score, KPI risks, or GRI standards."
+        )
+
+    # ---------- INPUT ----------
+    user_question = st.text_input(
+        "💬 Ask the Sustainability AI Assistant",
+        placeholder="e.g. What does GRI 305 mean?"
+    )
+
+    if user_question:
+        answer = ai_chat_response(user_question, context)
+        st.chat_message("assistant").write(answer)
