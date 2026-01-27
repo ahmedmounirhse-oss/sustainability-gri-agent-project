@@ -478,8 +478,8 @@ with tab2:
 - < 40 → Risky
         """)
 
-    # =========================
-# Individual KPI Gauges (WITH UNITS)
+ # =========================
+# Individual KPI Gauges (CLEAR TITLES + UNITS)
 # =========================
 st.subheader("📌 Individual KPI Performance")
 cols = st.columns(3)
@@ -500,24 +500,29 @@ for i, (kpi, value) in enumerate(kpis.items()):
 
     kpi_status = classify_kpi(val)
     color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
-
     axis_max = max(100, val * 1.5)
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=val,
-        number={
-            "suffix": f" {unit}",
-            "font": {"size": 28}
-        },
-        title={"text": f"{kpi} — {kpi_status}"},
-        gauge={
-            "axis": {"range": [0, axis_max]},
-            "bar": {"color": color}
-        }
-    ))
+    with cols[i % 3]:
+        # ✅ واضح وكبير
+        st.markdown(
+            f"### {kpi}  \n"
+            f"**Status:** `{kpi_status}`"
+        )
 
-    cols[i % 3].plotly_chart(fig, use_container_width=True)
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=val,
+            number={
+                "suffix": f" {unit}",
+                "font": {"size": 30}
+            },
+            gauge={
+                "axis": {"range": [0, axis_max]},
+                "bar": {"color": color}
+            }
+        ))
+
+        st.plotly_chart(fig, use_container_width=True)
 
 
 
