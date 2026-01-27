@@ -577,7 +577,7 @@ with tab3:
         # ----------------------
         # Plot (WITH UNIQUE KEY)
         # ----------------------
-        plot(fig, "trend")
+        plot(fig, f"trend_{selected_category}_{metric}")
 
 
 # =========================================
