@@ -479,40 +479,45 @@ with tab2:
         """)
 
     # =========================
-    # Individual KPI Gauges
-    # =========================
-    st.subheader("📌 Individual KPI Performance")
-    cols = st.columns(3)
+# Individual KPI Gauges (WITH UNITS)
+# =========================
+st.subheader("📌 Individual KPI Performance")
+cols = st.columns(3)
 
-    for i, (kpi, value) in enumerate(kpis.items()):
-        val = normalize_numeric(value)
+for i, (kpi, value) in enumerate(kpis.items()):
+    val = normalize_numeric(value)
+    if val is None or not np.isfinite(val):
+        continue
 
-        # skip non-numeric
-        if not isinstance(val, (int, float)):
-            continue
+    # -------------------------
+    # Detect unit based on KPI name
+    # -------------------------
+    unit = ""
+    for key, u in UNIT_MAP.items():
+        if key in kpi.lower():
+            unit = u
+            break
 
-        kpi_status = classify_kpi(val)
-        color = (
-            "green" if kpi_status == "Excellent"
-            else "orange" if kpi_status == "Moderate"
-            else "red"
-        )
+    kpi_status = classify_kpi(val)
+    color = "green" if kpi_status == "Excellent" else "orange" if kpi_status == "Moderate" else "red"
 
-        max_range = max(100.0, float(val) * 1.5)
+    axis_max = max(100, val * 1.5)
 
-        fig = go.Figure(
-            go.Indicator(
-                mode="gauge+number",
-                value=float(val),
-                title={"text": f"{kpi} — {kpi_status}"},
-                gauge={
-                    "axis": {"range": [0, max_range]},
-                    "bar": {"color": color}
-                }
-            )
-        )
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=val,
+        number={
+            "suffix": f" {unit}",
+            "font": {"size": 28}
+        },
+        title={"text": f"{kpi} — {kpi_status}"},
+        gauge={
+            "axis": {"range": [0, axis_max]},
+            "bar": {"color": color}
+        }
+    ))
 
-        cols[i % 3].plotly_chart(fig, width="stretch")
+    cols[i % 3].plotly_chart(fig, use_container_width=True)
 
 
 
