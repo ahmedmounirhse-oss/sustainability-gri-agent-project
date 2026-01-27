@@ -608,60 +608,91 @@ with tab5:
 
     if len(compare_files) >= 2:
         rows = []
+
         for file in compare_files:
             comp_df = load_company_file(file)
             comp_name = file.replace(".xlsx", "")
+
+            metric_col_c = detect_metric_column(comp_df)
+            if metric_col_c is None:
+                continue
+
             year_cols_c = sorted([c for c in comp_df.columns if str(c).isdigit()])
 
             for _, row in comp_df.iterrows():
                 status, coverage = indicator_status(row[year_cols_c])
                 rows.append({
                     "Company": comp_name,
-                    "Indicator": row[metric_col],
+                    "Indicator": row[metric_col_c],
                     "Status": status,
                     "Coverage %": coverage
                 })
 
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        st.dataframe(
+            pd.DataFrame(rows),
+            width="stretch"
+        )
 
+        # =========================
+        # AI INSIGHTS
+        # =========================
         st.subheader("🤖 AI Insights")
+
         selected_ai_company = st.selectbox("Select company", compare_files)
         ai_df = load_company_file(selected_ai_company)
-        year_cols_ai = sorted([c for c in ai_df.columns if str(c).isdigit()])
 
-        analysis = []
-        for _, row in ai_df.iterrows():
-            status, coverage = indicator_status(row[year_cols_ai])
-            analysis.append({
-                "indicator": row[metric_col],
-                "status": status,
-                "coverage": coverage
-            })
+        metric_col_ai = detect_metric_column(ai_df)
+        if metric_col_ai is not None:
+            year_cols_ai = sorted([c for c in ai_df.columns if str(c).isdigit()])
+            analysis = []
 
-        for insight in generate_ai_insight(selected_ai_company.replace(".xlsx", ""), analysis):
-            st.info(insight)
+            for _, row in ai_df.iterrows():
+                status, coverage = indicator_status(row[year_cols_ai])
+                analysis.append({
+                    "indicator": row[metric_col_ai],
+                    "status": status,
+                    "coverage": coverage
+                })
 
+            for insight in generate_ai_insight(
+                selected_ai_company.replace(".xlsx", ""),
+                analysis
+            ):
+                st.markdown(f"🔹 {insight}")
+
+        # =========================
+        # GRI STATUS HEATMAP
+        # =========================
         st.subheader("🔥 GRI Status Heatmap")
+
         status_map = {"Reported": 2, "Partial": 1, "Not Reported": 0}
         heatmap = {}
 
         for file in compare_files:
             comp_df = load_company_file(file)
             comp_name = file.replace(".xlsx", "")
+
+            metric_col_h = detect_metric_column(comp_df)
+            if metric_col_h is None:
+                continue
+
             year_cols_h = sorted([c for c in comp_df.columns if str(c).isdigit()])
             heatmap[comp_name] = {}
 
             for _, row in comp_df.iterrows():
                 status, _ = indicator_status(row[year_cols_h])
-                heatmap[comp_name][row[metric_col]] = status_map[status]
+                heatmap[comp_name][row[metric_col_h]] = status_map.get(status, 0)
 
-        heatmap_df = pd.DataFrame.from_dict(heatmap, orient="index").T
-        st.dataframe(
-            heatmap_df.style.background_gradient(cmap="RdYlGn"),
-            use_container_width=True
-        )
+        if heatmap:
+            heatmap_df = pd.DataFrame.from_dict(heatmap, orient="index").T
+            st.dataframe(
+                heatmap_df.style.background_gradient(cmap="RdYlGn"),
+                width="stretch"
+            )
+
     else:
         st.info("Select at least two companies to enable comparison")
+
 # =========================================
 # TAB 6 — SUSTAINABILITY AI ASSISTANT
 # =========================================
