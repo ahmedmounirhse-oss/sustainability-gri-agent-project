@@ -3,6 +3,19 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 
+def detect_metric_column(df):
+    possible_cols = [
+        "Additional Metrics (Energy)",
+        "Additional Metrics",
+        "Metric",
+        "Indicator",
+        "KPI"
+    ]
+    for col in possible_cols:
+        if col in df.columns:
+            return col
+    return None
+
 def plot(fig, name):
     st.plotly_chart(
         fig,
