@@ -85,6 +85,7 @@ UNIT_MAP = {
 # =========================================
 # HELPERS
 # =========================================
+
 def classify_kpi(value):
     try:
         value = float(value)
@@ -99,6 +100,15 @@ def classify_kpi(value):
         return "Risky"
 
 
+def classify_esg(score):
+    if score >= 70:
+        return "Excellent"
+    elif score >= 40:
+        return "Moderate"
+    else:
+        return "Risky"
+
+
 def calculate_esg_score(kpis):
     weights = {
         "energy": 0.25,
@@ -108,6 +118,7 @@ def calculate_esg_score(kpis):
     }
 
     score, used = 0, 0
+
     for k, v in kpis.items():
         v = normalize_numeric(v)
         if v is None:
@@ -122,10 +133,32 @@ def calculate_esg_score(kpis):
         return 0, "N/A"
 
     final = round(score / used, 2)
-    return final, classify_kpi(100 - final)
+    return final, classify_esg(final)
+
 
 def calculate_future_esg_score(df, selected_category, kpis):
-    ...
+    score, used = 0, 0
+
+    weights = {
+        "energy": 0.25,
+        "water": 0.25,
+        "emission": 0.35,
+        "waste": 0.15
+    }
+
+    for k, v in kpis.items():
+        v = normalize_numeric(v)
+        if v is None:
+            continue
+
+        for key, w in weights.items():
+            if key in k.lower():
+                score += max(0, 100 - v) * w
+                used += w
+
+    if used == 0:
+        return None
+
     return round(score / used, 2)
 
 # =========================================
